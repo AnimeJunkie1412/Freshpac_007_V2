@@ -1,0 +1,368 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  MASTER_USER
+  ADMIN_USER
+  CHIEF_ENGINEER
+  ENGINEER
+  PARENT_USER
+  CHILD_USER
+}
+
+enum AccountStatus {
+  ACTIVE
+  ON_HOLD
+  ACTIVE_PREPAYMENT
+  INACTIVE
+  ARCHIVED
+  MARKED_FOR_DELETION
+}
+
+enum ProductType {
+  NORMAL
+  COFFEE
+  RETAIL
+}
+
+enum VatCode {
+  T0
+  T1
+}
+
+enum OrderStatus {
+  DRAFT_BASKET
+  SUBMITTED
+  AWAITING_PAYMENT
+  PAID_SUBMITTED
+  PROCESSED
+  CANCELLED
+}
+
+enum JobType {
+  BREAKDOWN
+  SERVICE
+  WATER_FILTER_CHANGE
+}
+
+enum JobStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  FOLLOW_UP_REQUIRED
+  COMPLETED
+  COMPLETED_INVOICED
+  CANCELLED
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  CONFLICT
+  CANCELLED
+}
+
+model UserProfile {
+  id          String   @id @default(uuid()) @db.Uuid
+  authUserId  String?  @unique @db.Uuid
+  email       String   @unique
+  fullName    String
+  role        UserRole
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customerAccountId String?          @db.Uuid
+  customerAccount   CustomerAccount? @relation(fields: [customerAccountId], references: [id])
+  auditLogs         AuditLog[]
+  assignedJobs      EngineerJob[]    @relation("AssignedEngineer")
+  createdJobs       EngineerJob[]    @relation("CreatedEngineerJob")
+}
+
+model CustomerAccount {
+  id                    String        @id @default(uuid()) @db.Uuid
+  accountNumber         String        @unique
+  siteName              String
+  parentAccountId       String?       @db.Uuid
+  parentAccount         CustomerAccount? @relation("CustomerHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts         CustomerAccount[] @relation("CustomerHierarchy")
+  invoiceAddress        String
+  deliveryAddress       String
+  alternativeAddresses  Json?
+  contactNames          String[]
+  contactPhones         String[]
+  contactEmails         String[]
+  deliveryDay           String?
+  deliveryDriver        String?
+  courier               Boolean       @default(false)
+  contactFrequencyWeeks Int           @default(1)
+  assignedSalesRep      String?
+  accountOpenedAt       DateTime?
+  priceVisibility       Boolean       @default(true)
+  status                AccountStatus @default(ACTIVE)
+  onCallList            Boolean       @default(true)
+  specialInstructions   String?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  users                 UserProfile[]
+  orders                Order[]
+  equipment             Equipment[]
+  prices                CustomerPrice[]
+  productAccess         CustomerProductAccess[]
+  jobs                  EngineerJob[]
+  tradeRequests         TradeAccountRequest[]
+  notes                 CustomerNote[]
+}
+
+model CustomerNote {
+  id          String          @id @default(uuid()) @db.Uuid
+  customerId  String          @db.Uuid
+  customer    CustomerAccount @relation(fields: [customerId], references: [id])
+  note        String
+  visibility  String          @default("internal")
+  createdBy   String?
+  createdAt   DateTime        @default(now())
+}
+
+model Product {
+  id              String      @id @default(uuid()) @db.Uuid
+  code            String      @unique
+  name            String
+  description     String?
+  productType     ProductType @default(NORMAL)
+  category        String?
+  productGroup    String?
+  packSize        String?
+  priceExVatPence Int
+  vatCode         VatCode     @default(T1)
+  vatRate         Decimal     @default(20.00)
+  active          Boolean     @default(true)
+  imageUrl        String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  customerPrices  CustomerPrice[]
+  customerAccess  CustomerProductAccess[]
+  orderLines      OrderLine[]
+}
+
+model CustomerProductAccess {
+  id         String          @id @default(uuid()) @db.Uuid
+  customerId String          @db.Uuid
+  productId  String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id])
+  product    Product         @relation(fields: [productId], references: [id])
+  createdAt  DateTime        @default(now())
+
+  @@unique([customerId, productId])
+}
+
+model CustomerPrice {
+  id              String          @id @default(uuid()) @db.Uuid
+  customerId      String          @db.Uuid
+  productId       String          @db.Uuid
+  priceExVatPence Int
+  customer        CustomerAccount @relation(fields: [customerId], references: [id])
+  product         Product         @relation(fields: [productId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([customerId, productId])
+}
+
+model Order {
+  id                String          @id @default(uuid()) @db.Uuid
+  reference         String?         @unique
+  temporaryReference String?
+  customerId        String          @db.Uuid
+  customer          CustomerAccount @relation(fields: [customerId], references: [id])
+  status            OrderStatus     @default(DRAFT_BASKET)
+  deliveryDay       String?
+  deliveryMethod    String?
+  customerNotes     String?
+  internalNotes     String?
+  totalIncVatPence  Int             @default(0)
+  placedByUserId    String?         @db.Uuid
+  orderedByFreshpac Boolean         @default(false)
+  priceVisibilityAtOrder Boolean    @default(true)
+  editedByFreshpac  Boolean         @default(false)
+  editNote          String?
+  createdAt         DateTime        @default(now())
+  submittedAt       DateTime?
+  processedAt       DateTime?
+  updatedAt         DateTime        @updatedAt
+
+  lines             OrderLine[]
+}
+
+model OrderLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderId         String   @db.Uuid
+  order           Order    @relation(fields: [orderId], references: [id])
+  productId       String   @db.Uuid
+  product         Product  @relation(fields: [productId], references: [id])
+  quantity        Int
+  source          String   @default("CUSTOMER_ADDED")
+  priceExVatPence Int
+  vatPence        Int
+  priceIncVatPence Int
+  locked          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+
+model Equipment {
+  id              String          @id @default(uuid()) @db.Uuid
+  customerId      String          @db.Uuid
+  customer        CustomerAccount @relation(fields: [customerId], references: [id])
+  description     String
+  makeModel       String?
+  serialNumber    String?         @unique
+  status          String          @default("owned")
+  installedAt     DateTime?
+  lastServiceAt   DateTime?
+  rentalNotes     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  jobs            JobMachine[]
+}
+
+model EngineerJob {
+  id              String          @id @default(uuid()) @db.Uuid
+  reference       String?         @unique
+  customerId      String          @db.Uuid
+  customer        CustomerAccount @relation(fields: [customerId], references: [id])
+  jobType         JobType
+  status          JobStatus       @default(NEW)
+  reportedFault   String?
+  chargeable      Boolean         @default(false)
+  chargeableNote  String?
+  sageInvoiceNo   String?
+  assignedEngineerId String?      @db.Uuid
+  assignedEngineer   UserProfile? @relation("AssignedEngineer", fields: [assignedEngineerId], references: [id])
+  createdByUserId String?         @db.Uuid
+  createdByUser   UserProfile?    @relation("CreatedEngineerJob", fields: [createdByUserId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  completedAt     DateTime?
+
+  machines        JobMachine[]
+  partsRequests   PartsRequest[]
+}
+
+model JobMachine {
+  id          String      @id @default(uuid()) @db.Uuid
+  jobId       String      @db.Uuid
+  job         EngineerJob @relation(fields: [jobId], references: [id])
+  equipmentId String?     @db.Uuid
+  equipment   Equipment?  @relation(fields: [equipmentId], references: [id])
+  reportedFault String?
+  workCarriedOut String?
+  machineSettings Json?
+  createdAt   DateTime    @default(now())
+}
+
+model PartsRequest {
+  id          String       @id @default(uuid()) @db.Uuid
+  jobId       String?      @db.Uuid
+  job         EngineerJob? @relation(fields: [jobId], references: [id])
+  partNumber  String?
+  description String
+  quantity    Int          @default(1)
+  machineFault String?
+  notes       String?
+  processed   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+}
+
+model TradeAccountRequest {
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String
+  phone             String
+  email             String
+  businessName      String
+  businessAddress   String
+  relationToCompany String
+  notes             String?
+  status            String           @default("new")
+  assignedSalesRep  String?
+  customerId        String?          @db.Uuid
+  customer          CustomerAccount? @relation(fields: [customerId], references: [id])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+}
+
+model Announcement {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  body        String
+  audience    String   @default("all")
+  startsAt    DateTime?
+  endsAt      DateTime?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model ApprovedDevice {
+  id             String   @id @default(uuid()) @db.Uuid
+  deviceName     String
+  deviceKeyHash  String   @unique
+  approvedBy     String?
+  approvedAt     DateTime @default(now())
+  revokedAt      DateTime?
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+}
+
+model OfflineActionQueue {
+  id               String     @id @default(uuid()) @db.Uuid
+  deviceId         String?    @db.Uuid
+  actionType       String
+  entityType       String
+  entityId         String?
+  temporaryReference String?
+  payload          Json
+  lastKnownVersion String?
+  status           SyncStatus @default(PENDING)
+  errorMessage     String?
+  createdAt        DateTime   @default(now())
+  syncedAt         DateTime?
+}
+
+model SyncConflict {
+  id          String     @id @default(uuid()) @db.Uuid
+  entityType  String
+  entityId    String?
+  offlinePayload Json
+  cloudPayload   Json?
+  status      String     @default("NEEDS_REVIEW")
+  decision    String?
+  decidedBy   String?
+  decidedAt   DateTime?
+  createdAt   DateTime   @default(now())
+}
+
+model AuditLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  actionType  String
+  entityType  String
+  entityId    String?
+  userId      String?     @db.Uuid
+  user        UserProfile? @relation(fields: [userId], references: [id])
+  beforeValue Json?
+  afterValue  Json?
+  reason      String?
+  createdAt   DateTime    @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}

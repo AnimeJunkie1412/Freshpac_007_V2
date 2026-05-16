@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #fbf8f2;
+  --foreground: #2d2727;
+  --muted: #6e6d6d;
+  --brand: #f89a39;
+  --panel: #ffffff;
+  --line: #e8e4de;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top left, rgba(248, 154, 57, 0.12), transparent 28rem), var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(248, 154, 57, 0.28);
+}
+
+.fp-focus-ring {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-freshpac-orange focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+}
+
+.fp-compact-table th,
+.fp-compact-table td {
+  @apply border-b border-freshpac-panel px-3 py-2 text-left align-middle text-sm;
+}
+
+.fp-compact-table th {
+  @apply bg-freshpac-charcoal text-xs font-semibold uppercase tracking-[0.14em] text-white;
+}
+
+.fp-compact-table tr:hover td {
+  @apply bg-orange-50/70;
+}
