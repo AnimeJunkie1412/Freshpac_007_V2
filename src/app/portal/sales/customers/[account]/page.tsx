@@ -25,8 +25,13 @@ const tabs = [
   { label: "Audit", href: "#audit" }
 ];
 
-export default function CustomerDetailPage({ params }: { params: { account: string } }) {
-  const customer = getCustomerByAccount(params.account);
+export default async function CustomerDetailPage({
+  params
+}: {
+  params: Promise<{ account: string }>;
+}) {
+  const { account } = await params;
+  const customer = getCustomerByAccount(decodeURIComponent(account));
 
   if (!customer) {
     notFound();

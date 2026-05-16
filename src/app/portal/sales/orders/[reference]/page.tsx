@@ -19,8 +19,13 @@ const tabs = [
   { label: "Audit", href: "#audit" }
 ];
 
-export default function OrderDetailPage({ params }: { params: { reference: string } }) {
-  const order = getOrderByReference(params.reference);
+export default async function OrderDetailPage({
+  params
+}: {
+  params: Promise<{ reference: string }>;
+}) {
+  const { reference } = await params;
+  const order = getOrderByReference(decodeURIComponent(reference));
 
   if (!order) {
     notFound();
@@ -71,7 +76,9 @@ export default function OrderDetailPage({ params }: { params: { reference: strin
                 {order.editedByFreshpac ? <Badge tone="warning">Edited by Freshpac</Badge> : null}
               </div>
 
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">{order.reference}</h2>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">
+                {order.reference}
+              </h2>
               <p className="text-sm text-freshpac-grey">{order.siteName}</p>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -83,7 +90,9 @@ export default function OrderDetailPage({ params }: { params: { reference: strin
             </div>
 
             <div className="rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">Order controls</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">
+                Order controls
+              </p>
 
               <div className="mt-3 grid gap-2">
                 <RuleCard label="Minimum order" value={order.minimumOrderCheck} />
