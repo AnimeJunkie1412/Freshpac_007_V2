@@ -1,12 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, FilePlus2, Phone, UserRoundCheck, XCircle } from "lucide-react";
+import { Archive, ArrowLeft, CheckCircle2, FilePlus2, Phone, UserRoundCheck, XCircle } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
 import { ModuleSection } from "@/components/sales/module-section";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  acceptTradeRequest,
+  archiveTradeRequest,
+  assignTradeRequest,
+  markTradeRequestContacted,
+  rejectTradeRequest
+} from "@/app/portal/sales/trade-requests/actions";
 import {
   formatDateTime,
   formatTradeRequestStatus,
@@ -42,18 +50,29 @@ export default async function TradeRequestDetailPage({
         </Link>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" size="sm">
-            <Phone className="mr-2 size-4" />
-            Mark contacted
-          </Button>
-          <Button type="button" variant="secondary" size="sm">
-            <UserRoundCheck className="mr-2 size-4" />
-            Assign rep
-          </Button>
-          <Button type="button" size="sm">
-            <FilePlus2 className="mr-2 size-4" />
-            Create customer
-          </Button>
+          <form action={markTradeRequestContacted}>
+            <input type="hidden" name="requestId" value={request.id} />
+            <Button type="submit" variant="secondary" size="sm">
+              <Phone className="mr-2 size-4" />
+              Mark contacted
+            </Button>
+          </form>
+
+          <form action={acceptTradeRequest}>
+            <input type="hidden" name="requestId" value={request.id} />
+            <Button type="submit" size="sm">
+              <CheckCircle2 className="mr-2 size-4" />
+              Accept
+            </Button>
+          </form>
+
+          <form action={rejectTradeRequest}>
+            <input type="hidden" name="requestId" value={request.id} />
+            <Button type="submit" variant="secondary" size="sm">
+              <XCircle className="mr-2 size-4" />
+              Reject
+            </Button>
+          </form>
         </div>
       </div>
 
@@ -96,24 +115,56 @@ export default async function TradeRequestDetailPage({
           </div>
         </ModuleSection>
 
-        <ModuleSection id="review" title="Sales review" description="Placeholder review actions. Write actions come next.">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <Button type="button" variant="secondary">
-              <Phone className="mr-2 size-4" />
-              Mark contacted
-            </Button>
-            <Button type="button" variant="secondary">
-              <CheckCircle2 className="mr-2 size-4" />
-              Accept
-            </Button>
-            <Button type="button" variant="secondary">
-              <XCircle className="mr-2 size-4" />
-              Reject
-            </Button>
-            <Button type="button">
-              <FilePlus2 className="mr-2 size-4" />
-              Create account
-            </Button>
+        <ModuleSection id="review" title="Sales review" description="Live trade request review actions.">
+          <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+            <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <p className="font-black text-freshpac-charcoal">Assign sales rep</p>
+              <form action={assignTradeRequest} className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <input type="hidden" name="requestId" value={request.id} />
+                <Input name="assignedSalesRep" placeholder="Sarah, Andrew..." defaultValue={request.assignedSalesRep || ""} required />
+                <Button type="submit" variant="secondary">
+                  <UserRoundCheck className="mr-2 size-4" />
+                  Assign
+                </Button>
+              </form>
+            </div>
+
+            <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <p className="font-black text-freshpac-charcoal">Decision actions</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <form action={markTradeRequestContacted}>
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <Button type="submit" variant="secondary">
+                    <Phone className="mr-2 size-4" />
+                    Contacted
+                  </Button>
+                </form>
+
+                <form action={acceptTradeRequest}>
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <Button type="submit">
+                    <CheckCircle2 className="mr-2 size-4" />
+                    Accept
+                  </Button>
+                </form>
+
+                <form action={rejectTradeRequest}>
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <Button type="submit" variant="secondary">
+                    <XCircle className="mr-2 size-4" />
+                    Reject
+                  </Button>
+                </form>
+
+                <form action={archiveTradeRequest}>
+                  <input type="hidden" name="requestId" value={request.id} />
+                  <Button type="submit" variant="secondary">
+                    <Archive className="mr-2 size-4" />
+                    Archive
+                  </Button>
+                </form>
+              </div>
+            </div>
           </div>
         </ModuleSection>
 
@@ -127,9 +178,13 @@ export default async function TradeRequestDetailPage({
               </LinkButton>
             </div>
           ) : (
-            <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-              No customer account linked yet.
-            </p>
+            <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <p className="text-sm text-freshpac-grey">No customer account linked yet.</p>
+              <LinkButton href="/portal/sales/customers/new" className="mt-3">
+                <FilePlus2 className="mr-2 size-4" />
+                Create customer
+              </LinkButton>
+            </div>
           )}
         </ModuleSection>
 
