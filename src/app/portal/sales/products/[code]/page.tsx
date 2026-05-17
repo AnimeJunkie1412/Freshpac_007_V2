@@ -4,17 +4,33 @@ import { ArrowLeft, Coffee, FileText, Pencil, Plus, Printer, ShieldCheck } from 
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
 import { ModuleSection } from "@/components/sales/module-section";
-import { StatusBadge } from "@/components/sales/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getProductByCode } from "@/lib/sales/products";
+import {
+  calculatePriceIncVatPence,
+  calculateVatAmountPence,
+  formatDate,
+  formatMoneyFromPence,
+  formatProductStatus,
+  formatProductType,
+  formatPublicVisibility,
+  formatVatRate,
+  getProductByCodeFromDb,
+  getProductSalesStats,
+  getProductStatusTone,
+  getProductTypeTone,
+  getProductWarnings
+} from "@/lib/sales/product-db";
 
 const tabs = [
   { label: "Overview", href: "#overview" },
   { label: "Pricing", href: "#pricing" },
   { label: "Assignments", href: "#assignments" },
+  { label: "Customer prices", href: "#customer-prices" },
   { label: "Sales history", href: "#sales-history" },
+  { label: "Standing", href: "#standing" },
+  { label: "Retail", href: "#retail" },
   { label: "Notes", href: "#notes" },
   { label: "Audit", href: "#audit" }
 ];
@@ -25,16 +41,21 @@ export default async function ProductDetailPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const product = getProductByCode(decodeURIComponent(code));
+  const product = await getProductByCodeFromDb(decodeURIComponent(code));
 
   if (!product) {
     notFound();
   }
 
+  const priceIncVatPence = calculatePriceIncVatPence(product.priceExVatPence, product.vatRateBasisPoints);
+  const vatAmountPence = calculateVatAmountPence(product.priceExVatPence, product.vatRateBasisPoints);
+  const salesStats = getProductSalesStats(product.orderLines);
+  const warnings = getProductWarnings(product);
+
   return (
     <PortalShell
       title={product.name}
-      subtitle={`${product.code} · ${product.type}`}
+      subtitle={`${product.code} · ${formatProductType(product.productType)}`}
       activeHref="/portal/sales/products"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -67,38 +88,40 @@ export default async function ProductDetailPage({
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge
-                  status={product.status}
-                  tone={product.status === "Active" ? "success" : product.status === "Inactive" ? "warning" : "danger"}
-                />
-                <ProductTypeBadge type={product.type} />
-                <Badge tone={product.pricing.vatCode === "T1" ? "warning" : "neutral"}>
-                  VAT {product.pricing.vatCode}
-                </Badge>
-                <Badge tone={product.publicVisibility === "Assigned customers only" ? "warning" : "neutral"}>
-                  {product.publicVisibility}
+                <Badge tone={getProductStatusTone(product.status)}>{formatProductStatus(product.status)}</Badge>
+                <Badge tone={getProductTypeTone(product.productType)}>{formatProductType(product.productType)}</Badge>
+                <Badge tone={product.vatCode === "T1" ? "warning" : "neutral"}>VAT {product.vatCode}</Badge>
+                <Badge tone={formatPublicVisibility(product) === "Assigned customers only" ? "warning" : "neutral"}>
+                  {formatPublicVisibility(product)}
                 </Badge>
               </div>
 
               <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">{product.name}</h2>
-              <p className="mt-1 max-w-3xl text-sm text-freshpac-grey">{product.description}</p>
+              <p className="mt-1 max-w-3xl text-sm text-freshpac-grey">
+                {product.description || "No description recorded."}
+              </p>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <DetailField label="Sage code" value={product.code} />
-                <DetailField label="Category" value={product.category} />
-                <DetailField label="Group" value={product.group} />
-                <DetailField label="Pack size" value={product.packSize} />
+                <DetailField label="Category" value={product.category || "None"} />
+                <DetailField label="Group" value={product.productGroup || "None"} />
+                <DetailField label="Pack size" value={product.packSize || "None"} />
               </div>
             </div>
 
             <div className="rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">Control rules</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">Product warnings</p>
 
               <div className="mt-3 space-y-2">
-                <RuleCard label="Sage code required" value={product.sageRequired ? "Yes" : "No"} />
-                <RuleCard label="Customer can see code" value={product.customerCanSeeCode ? "Yes" : "No"} />
-                <RuleCard label="Visibility" value={product.publicVisibility} />
-                <RuleCard label="Assigned customers" value={String(product.assignedCustomers.length)} />
+                {warnings.map((warning) => (
+                  <div key={warning.label} className="rounded-xl border border-freshpac-panel bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-bold text-freshpac-charcoal">{warning.label}</p>
+                      <Badge tone={warning.tone}>{warning.label}</Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-freshpac-grey">{warning.description}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -133,13 +156,13 @@ export default async function ProductDetailPage({
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <DetailField label="Product code" value={product.code} />
-            <DetailField label="Product type" value={product.type} />
-            <DetailField label="Status" value={product.status} />
-            <DetailField label="Visibility" value={product.publicVisibility} />
-            <DetailField label="Category" value={product.category} />
-            <DetailField label="Group" value={product.group} />
-            <DetailField label="Pack size" value={product.packSize} />
-            <DetailField label="Sage required" value={product.sageRequired ? "Yes" : "No"} />
+            <DetailField label="Product type" value={formatProductType(product.productType)} />
+            <DetailField label="Status" value={formatProductStatus(product.status)} />
+            <DetailField label="Visibility" value={formatPublicVisibility(product)} />
+            <DetailField label="Category" value={product.category || "None"} />
+            <DetailField label="Group" value={product.productGroup || "None"} />
+            <DetailField label="Pack size" value={product.packSize || "None"} />
+            <DetailField label="Sage required" value={product.sageCodeRequired ? "Yes" : "No"} />
           </div>
         </ModuleSection>
 
@@ -155,11 +178,11 @@ export default async function ProductDetailPage({
           }
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <DetailField label="Price ex VAT" value={product.pricing.priceExVat} />
-            <DetailField label="VAT code" value={product.pricing.vatCode} />
-            <DetailField label="VAT rate" value={product.pricing.vatRate} />
-            <DetailField label="VAT amount" value={product.pricing.vatAmount} />
-            <DetailField label="Price inc VAT" value={product.pricing.priceIncVat} />
+            <DetailField label="Price ex VAT" value={formatMoneyFromPence(product.priceExVatPence)} />
+            <DetailField label="VAT code" value={product.vatCode} />
+            <DetailField label="VAT rate" value={formatVatRate(product.vatRateBasisPoints)} />
+            <DetailField label="VAT amount" value={formatMoneyFromPence(vatAmountPence)} />
+            <DetailField label="Price inc VAT" value={formatMoneyFromPence(priceIncVatPence)} />
           </div>
         </ModuleSection>
 
@@ -174,47 +197,88 @@ export default async function ProductDetailPage({
             </Button>
           }
         >
-          {product.assignedCustomers.length ? (
+          {product.customerAccess.length ? (
             <div className="overflow-x-auto">
               <table className="fp-compact-table min-w-full border-collapse">
                 <thead>
                   <tr>
                     <th>Account</th>
                     <th>Site</th>
-                    <th>Customer price</th>
+                    <th>Status</th>
                     <th>Assigned date</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {product.assignedCustomers.map((customer) => (
-                    <tr key={customer.accountNumber}>
+                  {product.customerAccess.map((access) => (
+                    <tr key={access.id}>
                       <td>
                         <Link
-                          href={`/portal/sales/customers/${customer.accountNumber}`}
+                          href={`/portal/sales/customers/${access.customer.accountNumber}`}
                           className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
                         >
-                          {customer.accountNumber}
+                          {access.customer.accountNumber}
                         </Link>
                       </td>
-                      <td>{customer.siteName}</td>
-                      <td>{customer.customerPrice}</td>
-                      <td>{customer.assignedDate}</td>
+                      <td>{access.customer.siteName}</td>
+                      <td>{access.customer.status}</td>
+                      <td>{formatDate(access.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-              This product has no customer-specific assignments yet.
-            </p>
+            <EmptyState message="This product has no customer-specific assignments yet." />
           )}
         </ModuleSection>
 
-        <ModuleSection id="sales-history" title="Sales history" description="Starter sales history view. Later this will come from processed order lines.">
+        <ModuleSection
+          id="customer-prices"
+          title="Customer-specific prices"
+          description="Customer-specific prices override the product default price."
+        >
+          {product.customerPrices.length ? (
+            <div className="overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th>Site</th>
+                    <th>Default ex VAT</th>
+                    <th>Customer ex VAT</th>
+                    <th>Updated</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {product.customerPrices.map((price) => (
+                    <tr key={price.id}>
+                      <td>
+                        <Link
+                          href={`/portal/sales/customers/${price.customer.accountNumber}`}
+                          className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                        >
+                          {price.customer.accountNumber}
+                        </Link>
+                      </td>
+                      <td>{price.customer.siteName}</td>
+                      <td>{formatMoneyFromPence(product.priceExVatPence)}</td>
+                      <td className="font-black text-freshpac-charcoal">{formatMoneyFromPence(price.priceExVatPence)}</td>
+                      <td>{formatDate(price.updatedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="No customer-specific price overrides recorded." />
+          )}
+        </ModuleSection>
+
+        <ModuleSection id="sales-history" title="Sales history" description="Calculated from order lines linked to this product.">
           <div className="grid gap-3 md:grid-cols-3">
-            {product.salesHistory.map((history) => (
+            {salesStats.map((history) => (
               <div key={history.period} className="rounded-2xl border border-freshpac-panel bg-white p-4">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">{history.period}</p>
                 <p className="mt-2 text-2xl font-black text-freshpac-charcoal">{history.quantity}</p>
@@ -222,31 +286,113 @@ export default async function ProductDetailPage({
               </div>
             ))}
           </div>
+
+          {product.orderLines.length ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Customer</th>
+                    <th>Date</th>
+                    <th>Qty</th>
+                    <th>Line total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.orderLines.slice(0, 10).map((line) => (
+                    <tr key={line.id}>
+                      <td>{line.order.reference || line.order.temporaryReference || "No reference"}</td>
+                      <td>{line.order.customer.siteName}</td>
+                      <td>{formatDate(line.createdAt)}</td>
+                      <td>{line.quantity}</td>
+                      <td>{formatMoneyFromPence(line.lineTotalPence)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </ModuleSection>
+
+        <ModuleSection id="standing" title="Standing order use" description="Standing order lines linked to this product.">
+          {product.standingLines.length ? (
+            <div className="overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Interval</th>
+                    <th>Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.standingLines.map((line) => (
+                    <tr key={line.id}>
+                      <td>{line.standingOrder.customer.siteName}</td>
+                      <td>{line.standingOrder.status}</td>
+                      <td>Every {line.standingOrder.intervalWeeks} week(s)</td>
+                      <td>{line.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="This product is not currently used in standing orders." />
+          )}
+        </ModuleSection>
+
+        <ModuleSection id="retail" title="Retail order use" description="Retail order lines linked to this product.">
+          {product.retailLines.length ? (
+            <div className="overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Week start</th>
+                    <th>Qty</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {product.retailLines.map((line) => (
+                    <tr key={line.id}>
+                      <td>{line.retailOrder.customer.siteName}</td>
+                      <td>{line.retailOrder.status}</td>
+                      <td>{formatDate(line.retailOrder.orderWeekStart)}</td>
+                      <td>{line.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="This product is not currently used in retail orders." />
+          )}
         </ModuleSection>
 
         <ModuleSection id="notes" title="Notes" description="Operational notes for product handling and restrictions.">
           <div className="grid gap-2">
-            {product.notes.map((note) => (
-              <div key={note} className="rounded-xl border border-freshpac-panel bg-white p-3 text-sm font-semibold text-freshpac-charcoal">
-                {note}
+            <div className="rounded-xl border border-freshpac-panel bg-white p-3 text-sm font-semibold text-freshpac-charcoal">
+              Product notes will be added as a database field later. For now, visibility and pricing rules are stored in structured fields.
+            </div>
+            {product.productType === "COFFEE" ? (
+              <div className="rounded-xl border border-freshpac-panel bg-white p-3 text-sm font-semibold text-freshpac-charcoal">
+                Coffee products must not be visible to unassigned customers.
               </div>
-            ))}
+            ) : null}
+            {product.productType === "RETAIL" ? (
+              <div className="rounded-xl border border-freshpac-panel bg-white p-3 text-sm font-semibold text-freshpac-charcoal">
+                Retail products are assigned like coffee products and roll into baskets during weekly rollover.
+              </div>
+            ) : null}
           </div>
         </ModuleSection>
 
         <ModuleSection id="audit" title="Audit history" description="Price changes, assignments and product updates must be logged.">
-          <div className="space-y-3">
-            {product.audit.map((event) => (
-              <div key={`${event.date}-${event.action}`} className="rounded-2xl border border-freshpac-panel bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-black text-freshpac-charcoal">{event.action}</p>
-                  <Badge>{event.date}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-freshpac-grey">By {event.user}</p>
-                <p className="mt-2 text-sm text-freshpac-charcoal">{event.note}</p>
-              </div>
-            ))}
-          </div>
+          <EmptyState message="Product-specific audit timeline will be wired after the audit module is added." />
         </ModuleSection>
 
         <div className="flex justify-end">
@@ -259,23 +405,10 @@ export default async function ProductDetailPage({
   );
 }
 
-function ProductTypeBadge({ type }: { type: string }) {
-  if (type === "Coffee Product") {
-    return <Badge tone="info">Coffee Product</Badge>;
-  }
-
-  if (type === "Retail Product") {
-    return <Badge tone="warning">Retail Product</Badge>;
-  }
-
-  return <Badge tone="neutral">Normal Product</Badge>;
-}
-
-function RuleCard({ label, value }: { label: string; value: string }) {
+function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-freshpac-panel bg-white p-3">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-freshpac-grey">{label}</p>
-      <p className="mt-1 text-sm font-bold text-freshpac-charcoal">{value}</p>
-    </div>
+    <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+      {message}
+    </p>
   );
 }
