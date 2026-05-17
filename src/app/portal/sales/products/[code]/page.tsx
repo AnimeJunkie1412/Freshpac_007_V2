@@ -19,8 +19,13 @@ const tabs = [
   { label: "Audit", href: "#audit" }
 ];
 
-export default function ProductDetailPage({ params }: { params: { code: string } }) {
-  const product = getProductByCode(params.code);
+export default async function ProductDetailPage({
+  params
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const { code } = await params;
+  const product = getProductByCode(decodeURIComponent(code));
 
   if (!product) {
     notFound();
