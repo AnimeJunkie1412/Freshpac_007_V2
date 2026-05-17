@@ -2,22 +2,37 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { CheckCircle2, ClipboardList, Filter, Phone, Search, ShoppingBasket, UserRoundCheck } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
-import { StatusBadge } from "@/components/sales/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { callListEntries, getCallListStats } from "@/lib/sales/orders";
+import {
+  formatBasketStatus,
+  formatCallListStatus,
+  formatCustomerStatus,
+  getBasketStatusTone,
+  getCallListAttentionFromDb,
+  getCallListEntriesFromDb,
+  getCallListStatsFromDb,
+  getCallListStatusTone,
+  getCustomerStatusTone,
+  getBasketValueText,
+  getLatestOrderText
+} from "@/lib/sales/call-list-db";
 
 const filters = ["All", "To call", "Called", "Nothing Needed", "Order placed", "Needs contact", "Tuesday", "Courier"];
 
-export default function CallListPage() {
-  const stats = getCallListStats();
+export default async function CallListPage() {
+  const [entries, attentionEntries, stats] = await Promise.all([
+    getCallListEntriesFromDb(),
+    getCallListAttentionFromDb(),
+    getCallListStatsFromDb()
+  ]);
 
   return (
     <PortalShell
       title="Sales call list"
-      subtitle="Weekly telesales list for customer contact, basket checks and Nothing Needed logging."
+      subtitle="Live weekly telesales list from Supabase/PostgreSQL via Prisma."
       activeHref="/portal/sales/call-list"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
@@ -55,7 +70,7 @@ export default function CallListPage() {
         <Card>
           <CardHeader>
             <CardTitle>Call counters</CardTitle>
-            <CardDescription>Weekly contact progress.</CardDescription>
+            <CardDescription>Live weekly contact progress.</CardDescription>
           </CardHeader>
 
           <CardContent className="grid grid-cols-2 gap-3">
@@ -64,6 +79,7 @@ export default function CallListPage() {
             <MiniStat label="Orders" value={stats.orderPlaced} tone="success" icon={<ShoppingBasket className="size-4" />} />
             <MiniStat label="Nothing" value={stats.nothingNeeded} icon={<CheckCircle2 className="size-4" />} />
             <MiniStat label="Contact" value={stats.needsContact} tone="warning" icon={<UserRoundCheck className="size-4" />} />
+            <MiniStat label="Called" value={stats.called} tone="info" icon={<Phone className="size-4" />} />
           </CardContent>
         </Card>
       </div>
@@ -75,10 +91,10 @@ export default function CallListPage() {
               <div>
                 <CardTitle>Weekly call list</CardTitle>
                 <CardDescription>
-                  Designed to replace the old call list screen while keeping fast access to past orders, shopping list and customer pricing.
+                  These records now come from Supabase/PostgreSQL through Prisma.
                 </CardDescription>
               </div>
-              <Badge tone="info">Mock data</Badge>
+              <Badge tone="success">Live database</Badge>
             </div>
           </CardHeader>
 
@@ -101,61 +117,75 @@ export default function CallListPage() {
                 </thead>
 
                 <tbody>
-                  {callListEntries.map((entry) => (
-                    <tr key={entry.accountNumber}>
-                      <td>
-                        <Link
-                          href={`/portal/sales/customers/${entry.accountNumber}`}
-                          className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
-                        >
-                          {entry.accountNumber}
-                        </Link>
-                      </td>
-                      <td>
-                        <div className="font-bold text-freshpac-charcoal">{entry.siteName}</div>
-                        <div className="text-xs text-freshpac-grey">{entry.notes}</div>
-                      </td>
-                      <td>
-                        <div className="font-semibold">{entry.contactName}</div>
-                        <div className="text-xs text-freshpac-grey">{entry.phone}</div>
-                      </td>
-                      <td>
-                        <div className="font-semibold">{entry.deliveryDay}</div>
-                        <div className="text-xs text-freshpac-grey">{entry.driverOrCourier}</div>
-                      </td>
-                      <td>
-                        <div className="font-semibold">{entry.contactDay}</div>
-                        <div className="text-xs text-freshpac-grey">Every {entry.contactFrequency}</div>
-                      </td>
-                      <td>{entry.assignedSalesRep}</td>
-                      <td>
-                        <CallStatusBadge status={entry.status} />
-                      </td>
-                      <td>
-                        <div className="font-bold">{entry.basketValue}</div>
-                        <Badge tone={entry.basketStatus === "Empty" ? "neutral" : "warning"}>{entry.basketStatus}</Badge>
-                      </td>
-                      <td>{entry.lastOrderDate}</td>
-                      <td>
-                        <div className="flex min-w-56 flex-wrap gap-2">
+                  {entries.map((entry) => {
+                    const primaryContact = entry.customer.contacts[0];
+
+                    return (
+                      <tr key={entry.id}>
+                        <td>
                           <Link
-                            href={`/portal/sales/customers/${entry.accountNumber}`}
-                            className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+                            href={`/portal/sales/customers/${entry.customer.accountNumber}`}
+                            className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
                           >
-                            Open account
+                            {entry.customer.accountNumber}
                           </Link>
-                          <Link
-                            href="/portal/sales/orders/new"
-                            className="rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:bg-orange-400"
-                          >
-                            Place order
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td>
+                          <div className="font-bold text-freshpac-charcoal">{entry.customer.siteName}</div>
+                          <div className="text-xs text-freshpac-grey">{entry.notes || "No call notes."}</div>
+                        </td>
+                        <td>
+                          <div className="font-semibold">{primaryContact?.name || "No contact"}</div>
+                          <div className="text-xs text-freshpac-grey">{primaryContact?.phone || "No phone"}</div>
+                        </td>
+                        <td>
+                          <div className="font-semibold">{entry.deliveryDay || entry.customer.deliveryDay || "Not set"}</div>
+                          <div className="text-xs text-freshpac-grey">
+                            {entry.driverOrCourier || entry.customer.driverOrCourier || "No driver"}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="font-semibold">{entry.contactDay || entry.customer.contactDay || "Not set"}</div>
+                          <div className="text-xs text-freshpac-grey">
+                            Every {entry.customer.contactFrequencyWeeks} week(s)
+                          </div>
+                        </td>
+                        <td>{entry.assignedSalesRep || entry.customer.assignedSalesRep || "Unassigned"}</td>
+                        <td>
+                          <Badge tone={getCallListStatusTone(entry.status)}>{formatCallListStatus(entry.status)}</Badge>
+                        </td>
+                        <td>
+                          <div className="font-bold">{getBasketValueText(entry)}</div>
+                          <Badge tone={getBasketStatusTone(entry.basketStatus)}>{formatBasketStatus(entry.basketStatus)}</Badge>
+                        </td>
+                        <td>{getLatestOrderText(entry.customer.orders)}</td>
+                        <td>
+                          <div className="flex min-w-56 flex-wrap gap-2">
+                            <Link
+                              href={`/portal/sales/customers/${entry.customer.accountNumber}`}
+                              className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+                            >
+                              Open account
+                            </Link>
+                            <Link
+                              href="/portal/sales/orders/new"
+                              className="rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:bg-orange-400"
+                            >
+                              Place order
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+
+              {!entries.length ? (
+                <div className="p-6 text-sm text-freshpac-grey">
+                  No call list entries found. Run <span className="font-bold">npm run prisma:seed</span> or run rollover later.
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -164,7 +194,7 @@ export default function CallListPage() {
           <Card>
             <CardHeader>
               <CardTitle>Call actions</CardTitle>
-              <CardDescription>These will write to the weekly call list once live.</CardDescription>
+              <CardDescription>These will become write actions next.</CardDescription>
             </CardHeader>
 
             <CardContent className="grid gap-2">
@@ -188,54 +218,42 @@ export default function CallListPage() {
             </CardHeader>
 
             <CardContent className="space-y-3">
-              {callListEntries
-                .filter((entry) => entry.status === "Needs Freshpac contact" || entry.accountStatus !== "Active")
-                .map((entry) => (
-                  <Link
-                    href={`/portal/sales/customers/${entry.accountNumber}`}
-                    key={entry.accountNumber}
-                    className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black text-freshpac-charcoal">{entry.siteName}</p>
-                        <p className="text-xs text-freshpac-grey">{entry.accountNumber}</p>
-                      </div>
-                      <StatusBadge
-                        status={entry.accountStatus}
-                        tone={entry.accountStatus === "On Hold" ? "danger" : "warning"}
-                      />
+              {attentionEntries.map((entry) => (
+                <Link
+                  href={`/portal/sales/customers/${entry.customer.accountNumber}`}
+                  key={entry.id}
+                  className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-freshpac-charcoal">{entry.customer.siteName}</p>
+                      <p className="text-xs text-freshpac-grey">{entry.customer.accountNumber}</p>
                     </div>
+                    <Badge tone={getCustomerStatusTone(entry.customer.status)}>
+                      {formatCustomerStatus(entry.customer.status)}
+                    </Badge>
+                  </div>
 
-                    <p className="mt-2 text-xs text-freshpac-grey">{entry.notes}</p>
-                  </Link>
-                ))}
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <Badge tone={getCallListStatusTone(entry.status)}>{formatCallListStatus(entry.status)}</Badge>
+                    <Badge tone={getBasketStatusTone(entry.basketStatus)}>{formatBasketStatus(entry.basketStatus)}</Badge>
+                  </div>
+
+                  <p className="mt-2 text-xs text-freshpac-grey">{entry.notes || "No notes recorded."}</p>
+                </Link>
+              ))}
+
+              {!attentionEntries.length ? (
+                <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                  No call list entries currently need extra contact.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         </div>
       </div>
     </PortalShell>
   );
-}
-
-function CallStatusBadge({ status }: { status: string }) {
-  if (status === "Order placed") {
-    return <Badge tone="success">Order placed</Badge>;
-  }
-
-  if (status === "Nothing Needed") {
-    return <Badge>Nothing Needed</Badge>;
-  }
-
-  if (status === "Needs Freshpac contact") {
-    return <Badge tone="warning">Needs contact</Badge>;
-  }
-
-  if (status === "Called") {
-    return <Badge tone="info">Called</Badge>;
-  }
-
-  return <Badge tone="info">To call</Badge>;
 }
 
 function MiniStat({
