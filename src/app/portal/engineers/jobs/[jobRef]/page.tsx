@@ -1,12 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, FileText, PackageSearch, Pencil, Printer, RefreshCcw, UserRoundCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  FileText,
+  PackageSearch,
+  Pencil,
+  PlayCircle,
+  Printer,
+  RefreshCcw,
+  Save,
+  UserRoundCheck
+} from "lucide-react";
+import {
+  assignEngineerToJob,
+  completeEngineerJob,
+  createEngineerJobPartsRequest,
+  markEngineerJobFollowUpRequired,
+  markEngineerJobInProgress,
+  updateEngineerJobChargeableReview
+} from "@/app/portal/engineers/jobs/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
 import { ModuleSection } from "@/components/sales/module-section";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   buildEngineerAuditPreview,
   formatChargeableStatus,
@@ -56,6 +76,7 @@ export default async function EngineerJobDetailPage({
   const addressLines = getCustomerAddressLines(job.customer.addresses);
   const coffeeProducts = job.customer.productAccess.filter((access) => access.product.productType === "COFFEE");
   const auditEvents = buildEngineerAuditPreview(job);
+  const firstMachineSheet = job.machineSheets[0];
 
   return (
     <PortalShell
@@ -73,15 +94,34 @@ export default async function EngineerJobDetailPage({
         </Link>
 
         <div className="flex flex-wrap gap-2">
+          {job.status !== "IN_PROGRESS" && job.status !== "COMPLETED" && job.status !== "COMPLETED_INVOICED" ? (
+            <form action={markEngineerJobInProgress}>
+              <input type="hidden" name="jobId" value={job.id} />
+              <input type="hidden" name="reference" value={reference} />
+              <Button type="submit" variant="secondary" size="sm">
+                <PlayCircle className="mr-2 size-4" />
+                Start job
+              </Button>
+            </form>
+          ) : null}
+
+          {job.status !== "COMPLETED" && job.status !== "COMPLETED_INVOICED" ? (
+            <form action={completeEngineerJob}>
+              <input type="hidden" name="jobId" value={job.id} />
+              <input type="hidden" name="reference" value={reference} />
+              <Button type="submit" size="sm">
+                <CheckCircle2 className="mr-2 size-4" />
+                Complete
+              </Button>
+            </form>
+          ) : null}
+
           <Button type="button" variant="secondary" size="sm">
             <Pencil className="mr-2 size-4" />
             Edit job
           </Button>
+
           <Button type="button" variant="secondary" size="sm">
-            <PackageSearch className="mr-2 size-4" />
-            Request parts
-          </Button>
-          <Button type="button" size="sm">
             <Printer className="mr-2 size-4" />
             Print report
           </Button>
@@ -152,21 +192,38 @@ export default async function EngineerJobDetailPage({
           action={
             <Button type="button" variant="secondary" size="sm">
               <UserRoundCheck className="mr-2 size-4" />
-              Assign engineer
+              Assignment
             </Button>
           }
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <DetailField label="Status" value={formatEngineerJobStatus(job.status)} />
-            <DetailField label="Priority" value={formatEngineerPriority(job.priority)} />
-            <DetailField label="Job type" value={formatEngineerJobTypes(job.jobTypes)} />
-            <DetailField label="Engineer" value={job.assignedEngineer?.fullName || "Unassigned"} />
-            <DetailField label="Offline status" value={formatSyncStatus(job.offlineStatus)} />
-            <DetailField label="Date attended" value={formatDate(job.dateAttended)} />
-            <DetailField label="Arrival" value={job.arrivalTime || "Not recorded"} />
-            <DetailField label="Departure" value={job.departureTime || "Not recorded"} />
-            <DetailField label="Time on site" value={job.timeOnSiteMinutes ? `${job.timeOnSiteMinutes} minutes` : "Not calculated"} />
-            <DetailField label="Photos" value={String(job.photosCount)} />
+          <div className="grid gap-4 xl:grid-cols-[380px_1fr]">
+            <form action={assignEngineerToJob} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <input type="hidden" name="jobId" value={job.id} />
+              <input type="hidden" name="reference" value={reference} />
+
+              <p className="font-black text-freshpac-charcoal">Assign engineer</p>
+              <p className="mt-1 text-sm text-freshpac-grey">Enter an engineer name. If missing, a local engineer profile is created.</p>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
+                <Input name="engineerName" defaultValue={job.assignedEngineer?.fullName || ""} placeholder="Engineer name" required />
+                <Button type="submit" variant="secondary">
+                  Assign
+                </Button>
+              </div>
+            </form>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <DetailField label="Status" value={formatEngineerJobStatus(job.status)} />
+              <DetailField label="Priority" value={formatEngineerPriority(job.priority)} />
+              <DetailField label="Job type" value={formatEngineerJobTypes(job.jobTypes)} />
+              <DetailField label="Engineer" value={job.assignedEngineer?.fullName || "Unassigned"} />
+              <DetailField label="Offline status" value={formatSyncStatus(job.offlineStatus)} />
+              <DetailField label="Date attended" value={formatDate(job.dateAttended)} />
+              <DetailField label="Arrival" value={job.arrivalTime || "Not recorded"} />
+              <DetailField label="Departure" value={job.departureTime || "Not recorded"} />
+              <DetailField label="Time on site" value={job.timeOnSiteMinutes ? `${job.timeOnSiteMinutes} minutes` : "Not calculated"} />
+              <DetailField label="Photos" value={String(job.photosCount)} />
+            </div>
           </div>
         </ModuleSection>
 
@@ -259,71 +316,158 @@ export default async function EngineerJobDetailPage({
         <ModuleSection
           id="parts"
           title="Parts used and parts requests"
-          description="Parts requests should create Sales Portal notifications for review and printing."
+          description="Parts requests create Sales Portal notifications for review and printing."
           action={
             <Button type="button" variant="secondary" size="sm">
               <PackageSearch className="mr-2 size-4" />
-              New parts request
+              Parts
             </Button>
           }
         >
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
-              <p className="font-black text-freshpac-charcoal">Parts used</p>
-              {job.partsUsed.length ? (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="fp-compact-table min-w-full border-collapse">
-                    <thead>
-                      <tr>
-                        <th>Part</th>
-                        <th>Description</th>
-                        <th>Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {job.partsUsed.map((part) => (
-                        <tr key={part.id}>
-                          <td className="font-bold">{part.partNumber || "No part number"}</td>
-                          <td>{part.description}</td>
-                          <td>{part.quantity}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-freshpac-grey">No parts used yet.</p>
-              )}
-            </div>
+          <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+            <form action={createEngineerJobPartsRequest} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <input type="hidden" name="jobId" value={job.id} />
+              <input type="hidden" name="reference" value={reference} />
 
-            <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
-              <p className="font-black text-freshpac-charcoal">Parts requests</p>
-              {job.partsRequests.length ? (
-                <div className="mt-3 space-y-3">
-                  {job.partsRequests.map((request) => (
-                    <div key={request.id} className="rounded-xl bg-freshpac-cream/70 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-black text-freshpac-charcoal">{request.reference || "No reference"}</p>
-                        <Badge tone="info">{request.status}</Badge>
+              <p className="font-black text-freshpac-charcoal">Create parts request</p>
+              <p className="mt-1 text-sm text-freshpac-grey">Submit a parts request linked to this job.</p>
+
+              <div className="mt-3 grid gap-3">
+                <Input
+                  name="machineMakeModel"
+                  defaultValue={firstMachineSheet?.makeModel || ""}
+                  placeholder="Machine make / model"
+                />
+                <Input
+                  name="machineSerialNumber"
+                  defaultValue={firstMachineSheet?.serialNumber || ""}
+                  placeholder="Machine serial number"
+                />
+                <Input name="partNumber" placeholder="Part number, if known" />
+                <Input name="partDescription" placeholder="Part description" required />
+                <Input name="quantity" type="number" min="1" defaultValue="1" required />
+                <textarea
+                  name="notes"
+                  placeholder="Request notes..."
+                  className="min-h-24 w-full rounded-2xl border border-freshpac-panel bg-white px-3 py-2 text-sm text-freshpac-charcoal outline-none transition placeholder:text-freshpac-grey/70 focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
+                />
+                <Button type="submit">
+                  <PackageSearch className="mr-2 size-4" />
+                  Submit request
+                </Button>
+              </div>
+            </form>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                <p className="font-black text-freshpac-charcoal">Parts used</p>
+                {job.partsUsed.length ? (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="fp-compact-table min-w-full border-collapse">
+                      <thead>
+                        <tr>
+                          <th>Part</th>
+                          <th>Description</th>
+                          <th>Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {job.partsUsed.map((part) => (
+                          <tr key={part.id}>
+                            <td className="font-bold">{part.partNumber || "No part number"}</td>
+                            <td>{part.description}</td>
+                            <td>{part.quantity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-freshpac-grey">No parts used yet.</p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                <p className="font-black text-freshpac-charcoal">Parts requests</p>
+                {job.partsRequests.length ? (
+                  <div className="mt-3 space-y-3">
+                    {job.partsRequests.map((request) => (
+                      <div key={request.id} className="rounded-xl bg-freshpac-cream/70 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-black text-freshpac-charcoal">{request.reference || "No reference"}</p>
+                          <Badge tone="info">{request.status}</Badge>
+                        </div>
+                        <p className="mt-1 text-sm text-freshpac-charcoal">
+                          {request.quantity} x {request.partDescription}
+                        </p>
+                        <p className="text-xs text-freshpac-grey">
+                          {request.machineMakeModel || "No machine"} · {request.machineSerialNumber || "No serial"}
+                        </p>
                       </div>
-                      <p className="mt-1 text-sm text-freshpac-charcoal">
-                        {request.quantity} x {request.partDescription}
-                      </p>
-                      <p className="text-xs text-freshpac-grey">
-                        {request.machineMakeModel || "No machine"} · {request.machineSerialNumber || "No serial"}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-freshpac-grey">No parts requested.</p>
-              )}
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-freshpac-grey">No parts requested.</p>
+                )}
+              </div>
             </div>
           </div>
         </ModuleSection>
 
         <ModuleSection id="chargeable" title="Chargeable review" description="Freshpac confirms chargeable status before Sage invoicing.">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <form action={updateEngineerJobChargeableReview} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+            <input type="hidden" name="jobId" value={job.id} />
+            <input type="hidden" name="reference" value={reference} />
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              <label className="grid gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">Chargeable</span>
+                <select
+                  name="chargeable"
+                  defaultValue={job.chargeable}
+                  className="h-10 rounded-xl border border-freshpac-panel bg-white px-3 text-sm font-semibold text-freshpac-charcoal outline-none focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
+                >
+                  <option value="TO_REVIEW">To review</option>
+                  <option value="YES">Yes</option>
+                  <option value="NO">No</option>
+                </select>
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">Callout pence</span>
+                <Input name="calloutChargePence" type="number" min="0" defaultValue={job.calloutChargePence || 0} />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">Additional pence</span>
+                <Input name="additionalChargesPence" type="number" min="0" defaultValue={job.additionalChargesPence || 0} />
+              </label>
+
+              <label className="grid gap-2">
+                <span className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">Sage invoice</span>
+                <Input name="sageInvoiceNumber" defaultValue={job.sageInvoiceNumber || ""} placeholder="Sage invoice number" />
+              </label>
+
+              <div className="grid content-end">
+                <Button type="submit">
+                  <Save className="mr-2 size-4" />
+                  Save review
+                </Button>
+              </div>
+            </div>
+
+            <label className="mt-3 grid gap-2">
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">Review note</span>
+              <textarea
+                name="chargeableReviewNote"
+                defaultValue={job.chargeableReviewNote || ""}
+                placeholder="Chargeable review notes..."
+                className="min-h-24 w-full rounded-2xl border border-freshpac-panel bg-white px-3 py-2 text-sm text-freshpac-charcoal outline-none transition placeholder:text-freshpac-grey/70 focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
+              />
+            </label>
+          </form>
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <DetailField label="Chargeable" value={formatChargeableStatus(job.chargeable)} />
             <DetailField label="Callout charge" value={formatMoneyFromPence(job.calloutChargePence)} />
             <DetailField label="Additional charges" value={formatMoneyFromPence(job.additionalChargesPence)} />
@@ -347,13 +491,38 @@ export default async function EngineerJobDetailPage({
           action={
             <Button type="button" variant="secondary" size="sm">
               <RefreshCcw className="mr-2 size-4" />
-              Create follow-up
+              Follow-up
             </Button>
           }
         >
-          <div className="grid gap-3 md:grid-cols-2">
-            <DetailField label="Follow-up required" value={job.followUpRequired ? "Yes" : "No"} />
-            <DetailField label="Reason" value={job.followUpReason || "No follow-up required."} />
+          <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+            <form action={markEngineerJobFollowUpRequired} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <input type="hidden" name="jobId" value={job.id} />
+              <input type="hidden" name="reference" value={reference} />
+
+              <p className="font-black text-freshpac-charcoal">Mark follow-up required</p>
+              <p className="mt-1 text-sm text-freshpac-grey">Add the reason before flagging this job.</p>
+
+              <textarea
+                name="followUpReason"
+                defaultValue={job.followUpReason || ""}
+                placeholder="Follow-up reason..."
+                className="mt-3 min-h-28 w-full rounded-2xl border border-freshpac-panel bg-white px-3 py-2 text-sm text-freshpac-charcoal outline-none transition placeholder:text-freshpac-grey/70 focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
+                required
+              />
+
+              <div className="mt-3 flex justify-end">
+                <Button type="submit" variant="secondary">
+                  <RefreshCcw className="mr-2 size-4" />
+                  Mark follow-up
+                </Button>
+              </div>
+            </form>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <DetailField label="Follow-up required" value={job.followUpRequired ? "Yes" : "No"} />
+              <DetailField label="Reason" value={job.followUpReason || "No follow-up required."} />
+            </div>
           </div>
         </ModuleSection>
 
