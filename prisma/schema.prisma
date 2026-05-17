@@ -17,19 +17,38 @@ enum UserRole {
   CHILD_USER
 }
 
-enum AccountStatus {
+enum CustomerAccountStatus {
   ACTIVE
   ON_HOLD
   ACTIVE_PREPAYMENT
   INACTIVE
   ARCHIVED
   MARKED_FOR_DELETION
+  DELETED
+}
+
+enum CustomerAddressType {
+  INVOICE
+  DELIVERY
+  ALTERNATIVE_DELIVERY
+}
+
+enum DeliveryMethod {
+  FRESHPAC_ROUTE
+  COURIER
 }
 
 enum ProductType {
   NORMAL
   COFFEE
   RETAIL
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+  MARKED_FOR_DELETION
 }
 
 enum VatCode {
@@ -46,13 +65,26 @@ enum OrderStatus {
   CANCELLED
 }
 
-enum JobType {
-  BREAKDOWN
-  SERVICE
-  WATER_FILTER_CHANGE
+enum OrderSource {
+  CUSTOMER_PORTAL
+  FRESHPAC_STAFF
+  CALL_LIST
+  STANDING_ORDER
+  RETAIL_ORDER
+  SYSTEM_AUTO_SUBMITTED
+  OFFLINE_PENDING
 }
 
-enum JobStatus {
+enum OrderLineSource {
+  CUSTOMER_ADDED
+  FRESHPAC_ADDED
+  STANDING_ORDER
+  RETAIL_ORDER
+  REORDERED_FROM_PAST_ORDER
+  SYSTEM_AUTO_SUBMITTED
+}
+
+enum EngineerJobStatus {
   NEW
   ASSIGNED
   IN_PROGRESS
@@ -60,6 +92,101 @@ enum JobStatus {
   COMPLETED
   COMPLETED_INVOICED
   CANCELLED
+}
+
+enum EngineerJobType {
+  BREAKDOWN
+  SERVICE
+  WATER_FILTER_CHANGE
+}
+
+enum EngineerPriority {
+  LOW
+  NORMAL
+  URGENT
+}
+
+enum ChargeableStatus {
+  YES
+  NO
+  TO_REVIEW
+}
+
+enum CustomerSignatureStatus {
+  NOT_SIGNED
+  SIGNED
+  NOT_REQUIRED
+}
+
+enum EquipmentStatus {
+  OWNED
+  RENTED
+  LOANED
+  TRIAL
+  OBSOLETE
+}
+
+enum PartRequestStatus {
+  DRAFT
+  SUBMITTED
+  PRINTED
+  COMPLETED
+  CANCELLED
+}
+
+enum CallListStatus {
+  TO_CALL
+  CALLED
+  NOTHING_NEEDED
+  ORDER_PLACED
+  NEEDS_FRESHPAC_CONTACT
+}
+
+enum BasketStatus {
+  EMPTY
+  HAS_BASKET
+  RETAIL_LOCKED
+  STANDING_ORDER_DUE
+}
+
+enum StandingOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum RetailOrderStatus {
+  DRAFT
+  SUBMITTED
+  ROLLED_OVER
+  CANCELLED
+}
+
+enum RolloverStatus {
+  PREVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum TradeRequestStatus {
+  NEW
+  CONTACTED
+  ASSIGNED
+  ACCEPTED
+  REJECTED
+  ARCHIVED
+}
+
+enum AnnouncementAudience {
+  ALL_CUSTOMERS
+  SELECTED_CUSTOMERS
+  DELIVERY_DAY
+  DRIVER_ROUTE
+  COURIER_CUSTOMERS
+  ACCOUNT_STATUS
+  INTERNAL_STAFF
 }
 
 enum SyncStatus {
@@ -70,222 +197,612 @@ enum SyncStatus {
   CANCELLED
 }
 
+enum SyncConflictStatus {
+  NEEDS_REVIEW
+  ACCEPTED_OFFLINE
+  KEPT_CLOUD
+  MERGED
+  ARCHIVED_DUPLICATE
+  CANCELLED_PENDING_CHANGE
+}
+
+enum AuditRetentionClass {
+  SECURITY_60_DAYS
+  BUSINESS_PERMANENT
+}
+
+enum ReportCategory {
+  ORDERS
+  CUSTOMERS
+  PRODUCTS
+  ENGINEERS
+  ROLLOVER
+  AUDIT
+}
+
+enum ReportExportStatus {
+  REQUESTED
+  GENERATED
+  FAILED
+}
+
 model UserProfile {
-  id          String   @id @default(uuid()) @db.Uuid
-  authUserId  String?  @unique @db.Uuid
-  email       String   @unique
-  fullName    String
-  role        UserRole
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(uuid()) @db.Uuid
+  authUserId String?  @unique @db.Uuid
+  email      String   @unique
+  fullName   String
+  role       UserRole
+  active     Boolean  @default(true)
 
   customerAccountId String?          @db.Uuid
   customerAccount   CustomerAccount? @relation(fields: [customerAccountId], references: [id])
-  auditLogs         AuditLog[]
-  assignedJobs      EngineerJob[]    @relation("AssignedEngineer")
-  createdJobs       EngineerJob[]    @relation("CreatedEngineerJob")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdNotes          CustomerNote[]   @relation("CustomerNoteCreatedBy")
+  placedOrders          Order[]          @relation("OrderPlacedBy")
+  processedOrders       Order[]          @relation("OrderProcessedBy")
+  createdEngineerJobs   EngineerJob[]    @relation("EngineerJobCreatedBy")
+  assignedEngineerJobs  EngineerJob[]    @relation("EngineerJobAssignedEngineer")
+  completedEngineerJobs EngineerJob[]    @relation("EngineerJobCompletedBy")
+  requestedParts        PartsRequest[]   @relation("PartsRequestRequestedBy")
+  approvedDevices       ApprovedDevice[] @relation("DeviceApprovedBy")
+  decidedConflicts      SyncConflict[]   @relation("ConflictDecidedBy")
+  auditLogs             AuditLog[]       @relation("AuditLogUser")
+  rolloverRuns          RolloverRun[]    @relation("RolloverRunBy")
+  reportExports         ReportExport[]   @relation("ReportExportRequestedBy")
+
+  @@index([role])
+  @@index([active])
 }
 
 model CustomerAccount {
-  id                    String        @id @default(uuid()) @db.Uuid
-  accountNumber         String        @unique
-  siteName              String
-  parentAccountId       String?       @db.Uuid
-  parentAccount         CustomerAccount? @relation("CustomerHierarchy", fields: [parentAccountId], references: [id])
-  childAccounts         CustomerAccount[] @relation("CustomerHierarchy")
-  invoiceAddress        String
-  deliveryAddress       String
-  alternativeAddresses  Json?
-  contactNames          String[]
-  contactPhones         String[]
-  contactEmails         String[]
+  id            String                @id @default(uuid()) @db.Uuid
+  accountNumber String                @unique
+  siteName      String
+  legalName     String?
+  status        CustomerAccountStatus @default(ACTIVE)
+
+  parentAccountId String?           @db.Uuid
+  parentAccount   CustomerAccount?  @relation("CustomerHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts   CustomerAccount[] @relation("CustomerHierarchy")
+
+  deliveryMethod        DeliveryMethod @default(FRESHPAC_ROUTE)
   deliveryDay           String?
-  deliveryDriver        String?
-  courier               Boolean       @default(false)
-  contactFrequencyWeeks Int           @default(1)
+  contactDay            String?
+  contactFrequencyWeeks Int            @default(1)
+  driverOrCourier       String?
   assignedSalesRep      String?
   accountOpenedAt       DateTime?
-  priceVisibility       Boolean       @default(true)
-  status                AccountStatus @default(ACTIVE)
-  onCallList            Boolean       @default(true)
-  specialInstructions   String?
-  createdAt             DateTime      @default(now())
-  updatedAt             DateTime      @updatedAt
+  priceVisibility       Boolean        @default(true)
+  onCallList            Boolean        @default(true)
 
-  users                 UserProfile[]
-  orders                Order[]
-  equipment             Equipment[]
-  prices                CustomerPrice[]
-  productAccess         CustomerProductAccess[]
-  jobs                  EngineerJob[]
-  tradeRequests         TradeAccountRequest[]
-  notes                 CustomerNote[]
+  sageAccountRequired Boolean   @default(true)
+  markedForDeletionAt DateTime?
+  archivedAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           UserProfile[]
+  addresses       CustomerAddress[]
+  contacts        CustomerContact[]
+  notes           CustomerNote[]
+  equipment       Equipment[]
+  prices          CustomerPrice[]
+  productAccess   CustomerProductAccess[]
+  orders          Order[]
+  engineerJobs    EngineerJob[]
+  standingOrders  StandingOrder[]
+  retailOrders    RetailOrder[]
+  callListEntries CallListEntry[]
+  tradeRequests   TradeAccountRequest[]
+
+  @@index([siteName])
+  @@index([status])
+  @@index([deliveryDay])
+  @@index([driverOrCourier])
+  @@index([assignedSalesRep])
+  @@index([onCallList])
+}
+
+model CustomerAddress {
+  id         String              @id @default(uuid()) @db.Uuid
+  customerId String              @db.Uuid
+  customer   CustomerAccount     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type       CustomerAddressType
+  label      String?
+  lines      String[]
+  postcode   String?
+  isPrimary  Boolean             @default(false)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([customerId])
+  @@index([type])
+}
+
+model CustomerContact {
+  id         String          @id @default(uuid()) @db.Uuid
+  customerId String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  name       String
+  role       String?
+  phone      String?
+  email      String?
+  isPrimary  Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([customerId])
+  @@index([email])
+  @@index([phone])
 }
 
 model CustomerNote {
-  id          String          @id @default(uuid()) @db.Uuid
-  customerId  String          @db.Uuid
-  customer    CustomerAccount @relation(fields: [customerId], references: [id])
-  note        String
-  visibility  String          @default("internal")
-  createdBy   String?
-  createdAt   DateTime        @default(now())
+  id         String          @id @default(uuid()) @db.Uuid
+  customerId String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  note       String
+  visibility String          @default("internal")
+
+  createdByUserId String?      @db.Uuid
+  createdByUser   UserProfile? @relation("CustomerNoteCreatedBy", fields: [createdByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
 }
 
 model Product {
-  id              String      @id @default(uuid()) @db.Uuid
-  code            String      @unique
-  name            String
-  description     String?
-  productType     ProductType @default(NORMAL)
-  category        String?
-  productGroup    String?
-  packSize        String?
-  priceExVatPence Int
-  vatCode         VatCode     @default(T1)
-  vatRate         Decimal     @default(20.00)
-  active          Boolean     @default(true)
-  imageUrl        String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id          String        @id @default(uuid()) @db.Uuid
+  code        String        @unique
+  name        String
+  description String?
+  productType ProductType   @default(NORMAL)
+  status      ProductStatus @default(ACTIVE)
 
-  customerPrices  CustomerPrice[]
-  customerAccess  CustomerProductAccess[]
-  orderLines      OrderLine[]
+  category     String?
+  productGroup String?
+  packSize     String?
+  imageUrl     String?
+
+  priceExVatPence    Int
+  vatCode            VatCode @default(T1)
+  vatRateBasisPoints Int     @default(2000)
+
+  customerCanSeeCode Boolean @default(false)
+  sageCodeRequired   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerPrices CustomerPrice[]
+  customerAccess CustomerProductAccess[]
+  orderLines     OrderLine[]
+  standingLines  StandingOrderLine[]
+  retailLines    RetailOrderLine[]
+
+  @@index([name])
+  @@index([productType])
+  @@index([status])
+  @@index([category])
+  @@index([productGroup])
 }
 
 model CustomerProductAccess {
   id         String          @id @default(uuid()) @db.Uuid
   customerId String          @db.Uuid
   productId  String          @db.Uuid
-  customer   CustomerAccount @relation(fields: [customerId], references: [id])
-  product    Product         @relation(fields: [productId], references: [id])
-  createdAt  DateTime        @default(now())
+  customer   CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
 
   @@unique([customerId, productId])
+  @@index([customerId])
+  @@index([productId])
 }
 
 model CustomerPrice {
   id              String          @id @default(uuid()) @db.Uuid
   customerId      String          @db.Uuid
   productId       String          @db.Uuid
+  customer        CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   priceExVatPence Int
-  customer        CustomerAccount @relation(fields: [customerId], references: [id])
-  product         Product         @relation(fields: [productId], references: [id])
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([customerId, productId])
+  @@index([customerId])
+  @@index([productId])
 }
 
 model Order {
-  id                String          @id @default(uuid()) @db.Uuid
-  reference         String?         @unique
-  temporaryReference String?
-  customerId        String          @db.Uuid
-  customer          CustomerAccount @relation(fields: [customerId], references: [id])
-  status            OrderStatus     @default(DRAFT_BASKET)
-  deliveryDay       String?
-  deliveryMethod    String?
-  customerNotes     String?
-  internalNotes     String?
-  totalIncVatPence  Int             @default(0)
-  placedByUserId    String?         @db.Uuid
-  orderedByFreshpac Boolean         @default(false)
-  priceVisibilityAtOrder Boolean    @default(true)
-  editedByFreshpac  Boolean         @default(false)
-  editNote          String?
-  createdAt         DateTime        @default(now())
-  submittedAt       DateTime?
-  processedAt       DateTime?
-  updatedAt         DateTime        @updatedAt
+  id                 String          @id @default(uuid()) @db.Uuid
+  reference          String?         @unique
+  temporaryReference String?         @unique
+  customerId         String          @db.Uuid
+  customer           CustomerAccount @relation(fields: [customerId], references: [id])
+  status             OrderStatus     @default(DRAFT_BASKET)
+  source             OrderSource     @default(CUSTOMER_PORTAL)
 
-  lines             OrderLine[]
+  deliveryDay      String?
+  deliveryMethod   DeliveryMethod?
+  driverOrCourier  String?
+  customerPoNumber String?
+
+  customerNotes String?
+  internalNotes String?
+
+  totalExVatPence     Int @default(0)
+  vatTotalPence       Int @default(0)
+  totalIncVatPence    Int @default(0)
+  carriageExVatPence  Int @default(0)
+  carriageVatPence    Int @default(0)
+  carriageIncVatPence Int @default(0)
+
+  minimumOrderPassed     Boolean?
+  priceVisibilityAtOrder Boolean  @default(true)
+
+  orderedByFreshpac Boolean @default(false)
+  editedByFreshpac  Boolean @default(false)
+  editNote          String?
+
+  placedByUserId String?      @db.Uuid
+  placedByUser   UserProfile? @relation("OrderPlacedBy", fields: [placedByUserId], references: [id])
+
+  processedByUserId String?      @db.Uuid
+  processedByUser   UserProfile? @relation("OrderProcessedBy", fields: [processedByUserId], references: [id])
+
+  submittedAt DateTime?
+  processedAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines OrderLine[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([source])
+  @@index([deliveryDay])
+  @@index([createdAt])
 }
 
 model OrderLine {
-  id              String   @id @default(uuid()) @db.Uuid
-  orderId         String   @db.Uuid
-  order           Order    @relation(fields: [orderId], references: [id])
-  productId       String   @db.Uuid
-  product         Product  @relation(fields: [productId], references: [id])
-  quantity        Int
-  source          String   @default("CUSTOMER_ADDED")
-  priceExVatPence Int
-  vatPence        Int
+  id      String @id @default(uuid()) @db.Uuid
+  orderId String @db.Uuid
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String?  @db.Uuid
+  product   Product? @relation(fields: [productId], references: [id])
+
+  productCodeSnapshot String
+  descriptionSnapshot String
+  packSizeSnapshot    String?
+  quantity            Int
+  source              OrderLineSource @default(CUSTOMER_ADDED)
+
+  priceExVatPence  Int
+  vatPence         Int
   priceIncVatPence Int
-  locked          Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  lineTotalPence   Int
+
+  lockedFromCustomer Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([source])
 }
 
 model Equipment {
-  id              String          @id @default(uuid()) @db.Uuid
-  customerId      String          @db.Uuid
-  customer        CustomerAccount @relation(fields: [customerId], references: [id])
-  description     String
-  makeModel       String?
-  serialNumber    String?         @unique
-  status          String          @default("owned")
-  installedAt     DateTime?
-  lastServiceAt   DateTime?
-  rentalNotes     String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id         String          @id @default(uuid()) @db.Uuid
+  customerId String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id])
 
-  jobs            JobMachine[]
+  description       String
+  makeModel         String?
+  serialNumber      String?         @unique
+  status            EquipmentStatus @default(OWNED)
+  installedAt       DateTime?
+  lastServiceAt     DateTime?
+  breakdownCover    String?
+  rentalAmountPence Int?
+  rentalStartAt     DateTime?
+  rentalDuration    String?
+  machineCondition  String?
+  rentalNotes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobSheets EngineerJobMachineSheet[]
+
+  @@index([customerId])
+  @@index([serialNumber])
+  @@index([status])
 }
 
 model EngineerJob {
-  id              String          @id @default(uuid()) @db.Uuid
-  reference       String?         @unique
-  customerId      String          @db.Uuid
-  customer        CustomerAccount @relation(fields: [customerId], references: [id])
-  jobType         JobType
-  status          JobStatus       @default(NEW)
-  reportedFault   String?
-  chargeable      Boolean         @default(false)
-  chargeableNote  String?
-  sageInvoiceNo   String?
-  assignedEngineerId String?      @db.Uuid
-  assignedEngineer   UserProfile? @relation("AssignedEngineer", fields: [assignedEngineerId], references: [id])
-  createdByUserId String?         @db.Uuid
-  createdByUser   UserProfile?    @relation("CreatedEngineerJob", fields: [createdByUserId], references: [id])
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  completedAt     DateTime?
+  id                 String  @id @default(uuid()) @db.Uuid
+  reference          String? @unique
+  temporaryReference String? @unique
 
-  machines        JobMachine[]
-  partsRequests   PartsRequest[]
+  customerId String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id])
+
+  status   EngineerJobStatus @default(NEW)
+  priority EngineerPriority  @default(NORMAL)
+  jobTypes EngineerJobType[]
+
+  reportedFault     String?
+  scheduledAt       DateTime?
+  dateAttended      DateTime?
+  arrivalTime       String?
+  departureTime     String?
+  timeOnSiteMinutes Int?
+
+  chargeable             ChargeableStatus @default(TO_REVIEW)
+  calloutChargePence     Int?
+  additionalChargesPence Int?
+  chargeableReviewNote   String?
+  sageInvoiceNumber      String?
+
+  customerSignatureStatus CustomerSignatureStatus @default(NOT_SIGNED)
+  customerPrintedName     String?
+  signatureDate           DateTime?
+
+  followUpRequired Boolean       @default(false)
+  followUpReason   String?
+  parentJobId      String?       @db.Uuid
+  parentJob        EngineerJob?  @relation("EngineerFollowUps", fields: [parentJobId], references: [id])
+  followUpJobs     EngineerJob[] @relation("EngineerFollowUps")
+
+  photosCount   Int        @default(0)
+  offlineStatus SyncStatus @default(SYNCED)
+
+  createdByUserId String?      @db.Uuid
+  createdByUser   UserProfile? @relation("EngineerJobCreatedBy", fields: [createdByUserId], references: [id])
+
+  assignedEngineerId String?      @db.Uuid
+  assignedEngineer   UserProfile? @relation("EngineerJobAssignedEngineer", fields: [assignedEngineerId], references: [id])
+
+  completedByUserId String?      @db.Uuid
+  completedByUser   UserProfile? @relation("EngineerJobCompletedBy", fields: [completedByUserId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  machineSheets EngineerJobMachineSheet[]
+  partsUsed     JobPartUsed[]
+  partsRequests PartsRequest[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([priority])
+  @@index([scheduledAt])
+  @@index([offlineStatus])
 }
 
-model JobMachine {
-  id          String      @id @default(uuid()) @db.Uuid
-  jobId       String      @db.Uuid
-  job         EngineerJob @relation(fields: [jobId], references: [id])
-  equipmentId String?     @db.Uuid
-  equipment   Equipment?  @relation(fields: [equipmentId], references: [id])
-  reportedFault String?
-  workCarriedOut String?
-  machineSettings Json?
-  createdAt   DateTime    @default(now())
+model EngineerJobMachineSheet {
+  id    String      @id @default(uuid()) @db.Uuid
+  jobId String      @db.Uuid
+  job   EngineerJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  equipmentId String?    @db.Uuid
+  equipment   Equipment? @relation(fields: [equipmentId], references: [id])
+
+  machineDescription String
+  makeModel          String?
+  serialNumber       String?
+  reportedFault      String?
+  workCarriedOut     String?
+
+  repairedOnSite               String?
+  machineExchanged             String?
+  exchangedMachineDescription  String?
+  exchangedMachineSerialNumber String?
+
+  steamPressureBar      String?
+  pumpPressureBar       String?
+  espressoTimeSeconds   String?
+  espressoVolumeFluidOz String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([jobId])
+  @@index([equipmentId])
+  @@index([serialNumber])
+}
+
+model JobPartUsed {
+  id    String      @id @default(uuid()) @db.Uuid
+  jobId String      @db.Uuid
+  job   EngineerJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  partNumber  String?
+  description String
+  quantity    Int     @default(1)
+
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([partNumber])
+}
+
+model SavedPart {
+  id                  String  @id @default(uuid()) @db.Uuid
+  partNumber          String? @unique
+  description         String
+  supplier            String?
+  costToCustomerPence Int?
+  active              Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([description])
+  @@index([active])
 }
 
 model PartsRequest {
-  id          String       @id @default(uuid()) @db.Uuid
-  jobId       String?      @db.Uuid
-  job         EngineerJob? @relation(fields: [jobId], references: [id])
-  partNumber  String?
-  description String
-  quantity    Int          @default(1)
-  machineFault String?
-  notes       String?
-  processed   Boolean      @default(false)
-  createdAt   DateTime     @default(now())
+  id        String  @id @default(uuid()) @db.Uuid
+  reference String? @unique
+
+  jobId String?      @db.Uuid
+  job   EngineerJob? @relation(fields: [jobId], references: [id])
+
+  status PartRequestStatus @default(SUBMITTED)
+
+  machineMakeModel    String?
+  machineSerialNumber String?
+  partNumber          String?
+  partDescription     String
+  quantity            Int     @default(1)
+  machineFault        String?
+  notes               String?
+
+  requestedByUserId String?      @db.Uuid
+  requestedByUser   UserProfile? @relation("PartsRequestRequestedBy", fields: [requestedByUserId], references: [id])
+
+  printedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([jobId])
+  @@index([status])
+  @@index([partNumber])
+  @@index([machineSerialNumber])
+}
+
+model StandingOrder {
+  id         String          @id @default(uuid()) @db.Uuid
+  customerId String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  status        StandingOrderStatus @default(PENDING_APPROVAL)
+  intervalWeeks Int
+  startDate     DateTime
+  endDate       DateTime?
+  pausedAt      DateTime?
+  approvedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines StandingOrderLine[]
+
+  @@index([customerId])
+  @@index([status])
+}
+
+model StandingOrderLine {
+  id              String        @id @default(uuid()) @db.Uuid
+  standingOrderId String        @db.Uuid
+  standingOrder   StandingOrder @relation(fields: [standingOrderId], references: [id], onDelete: Cascade)
+
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int
+
+  createdAt DateTime @default(now())
+
+  @@index([standingOrderId])
+  @@index([productId])
+}
+
+model RetailOrder {
+  id         String          @id @default(uuid()) @db.Uuid
+  customerId String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  status         RetailOrderStatus @default(DRAFT)
+  orderWeekStart DateTime
+  lockedAt       DateTime?
+  rolledOverAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines RetailOrderLine[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([orderWeekStart])
+}
+
+model RetailOrderLine {
+  id            String      @id @default(uuid()) @db.Uuid
+  retailOrderId String      @db.Uuid
+  retailOrder   RetailOrder @relation(fields: [retailOrderId], references: [id], onDelete: Cascade)
+
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id])
+
+  quantity Int
+
+  createdAt DateTime @default(now())
+
+  @@index([retailOrderId])
+  @@index([productId])
+}
+
+model CallListEntry {
+  id         String          @id @default(uuid()) @db.Uuid
+  customerId String          @db.Uuid
+  customer   CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  weekStart    DateTime
+  status       CallListStatus @default(TO_CALL)
+  basketStatus BasketStatus   @default(EMPTY)
+
+  assignedSalesRep String?
+  contactDay       String?
+  deliveryDay      String?
+  driverOrCourier  String?
+  notes            String?
+
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, weekStart])
+  @@index([weekStart])
+  @@index([status])
+}
+
+model RolloverRun {
+  id        String         @id @default(uuid()) @db.Uuid
+  weekStart DateTime
+  status    RolloverStatus @default(PREVIEW)
+
+  previewSummary    Json?
+  completionSummary Json?
+
+  runByUserId String?      @db.Uuid
+  runByUser   UserProfile? @relation("RolloverRunBy", fields: [runByUserId], references: [id])
+
+  confirmedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([weekStart])
+  @@index([status])
 }
 
 model TradeAccountRequest {
-  id                String           @id @default(uuid()) @db.Uuid
+  id                String  @id @default(uuid()) @db.Uuid
   name              String
   phone             String
   email             String
@@ -293,76 +810,157 @@ model TradeAccountRequest {
   businessAddress   String
   relationToCompany String
   notes             String?
-  status            String           @default("new")
-  assignedSalesRep  String?
-  customerId        String?          @db.Uuid
-  customer          CustomerAccount? @relation(fields: [customerId], references: [id])
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+
+  status           TradeRequestStatus @default(NEW)
+  assignedSalesRep String?
+
+  customerId String?          @db.Uuid
+  customer   CustomerAccount? @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([email])
 }
 
 model Announcement {
-  id          String   @id @default(uuid()) @db.Uuid
-  title       String
-  body        String
-  audience    String   @default("all")
-  startsAt    DateTime?
-  endsAt      DateTime?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id       String               @id @default(uuid()) @db.Uuid
+  title    String
+  body     String
+  audience AnnouncementAudience @default(ALL_CUSTOMERS)
+
+  targetDeliveryDay   String?
+  targetDriver        String?
+  targetCustomerIds   String[]
+  targetAccountStatus CustomerAccountStatus?
+
+  startsAt DateTime?
+  endsAt   DateTime?
+  active   Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([audience])
+  @@index([active])
 }
 
 model ApprovedDevice {
-  id             String   @id @default(uuid()) @db.Uuid
-  deviceName     String
-  deviceKeyHash  String   @unique
-  approvedBy     String?
-  approvedAt     DateTime @default(now())
-  revokedAt      DateTime?
-  lastSyncAt     DateTime?
-  createdAt      DateTime @default(now())
+  id            String @id @default(uuid()) @db.Uuid
+  deviceName    String
+  deviceKeyHash String @unique
+
+  approvedByUserId String?      @db.Uuid
+  approvedByUser   UserProfile? @relation("DeviceApprovedBy", fields: [approvedByUserId], references: [id])
+
+  approvedAt DateTime  @default(now())
+  revokedAt  DateTime?
+  lastSyncAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  offlineAdminCacheAllowed Boolean @default(false)
+
+  @@index([revokedAt])
+  @@index([lastSyncAt])
 }
 
 model OfflineActionQueue {
-  id               String     @id @default(uuid()) @db.Uuid
-  deviceId         String?    @db.Uuid
-  actionType       String
-  entityType       String
-  entityId         String?
+  id String @id @default(uuid()) @db.Uuid
+
+  deviceId           String? @db.Uuid
+  actionType         String
+  entityType         String
+  entityId           String?
   temporaryReference String?
-  payload          Json
-  lastKnownVersion String?
-  status           SyncStatus @default(PENDING)
-  errorMessage     String?
-  createdAt        DateTime   @default(now())
-  syncedAt         DateTime?
+
+  payload               Json
+  lastKnownCloudVersion String?
+
+  status       SyncStatus @default(PENDING)
+  errorMessage String?
+
+  createdAt DateTime  @default(now())
+  syncedAt  DateTime?
+
+  @@index([status])
+  @@index([entityType, entityId])
+  @@index([temporaryReference])
 }
 
 model SyncConflict {
-  id          String     @id @default(uuid()) @db.Uuid
-  entityType  String
-  entityId    String?
+  id String @id @default(uuid()) @db.Uuid
+
+  entityType String
+  entityId   String?
+
   offlinePayload Json
   cloudPayload   Json?
-  status      String     @default("NEEDS_REVIEW")
-  decision    String?
-  decidedBy   String?
-  decidedAt   DateTime?
-  createdAt   DateTime   @default(now())
+
+  status       SyncConflictStatus @default(NEEDS_REVIEW)
+  decisionNote String?
+
+  decidedByUserId String?      @db.Uuid
+  decidedByUser   UserProfile? @relation("ConflictDecidedBy", fields: [decidedByUserId], references: [id])
+
+  decidedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([status])
+  @@index([entityType, entityId])
+}
+
+model ReportExport {
+  id String @id @default(uuid()) @db.Uuid
+
+  reportId String
+  title    String
+  category ReportCategory
+  status   ReportExportStatus @default(REQUESTED)
+
+  filters      Json?
+  filePath     String?
+  errorMessage String?
+
+  requestedByUserId String?      @db.Uuid
+  requestedByUser   UserProfile? @relation("ReportExportRequestedBy", fields: [requestedByUserId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  generatedAt DateTime?
+
+  @@index([reportId])
+  @@index([category])
+  @@index([status])
+}
+
+model ReferenceCounter {
+  key       String   @id
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 model AuditLog {
-  id          String      @id @default(uuid()) @db.Uuid
-  actionType  String
-  entityType  String
-  entityId    String?
-  userId      String?     @db.Uuid
-  user        UserProfile? @relation(fields: [userId], references: [id])
+  id String @id @default(uuid()) @db.Uuid
+
+  actionType String
+  entityType String
+  entityId   String?
+
+  userId String?      @db.Uuid
+  user   UserProfile? @relation("AuditLogUser", fields: [userId], references: [id])
+
   beforeValue Json?
   afterValue  Json?
   reason      String?
-  createdAt   DateTime    @default(now())
+
+  retentionClass AuditRetentionClass @default(BUSINESS_PERMANENT)
+
+  createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([entityType, entityId])
+  @@index([actionType])
+  @@index([retentionClass])
 }

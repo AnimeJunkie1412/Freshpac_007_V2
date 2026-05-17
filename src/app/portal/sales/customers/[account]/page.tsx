@@ -8,7 +8,20 @@ import { StatusBadge } from "@/components/sales/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getCustomerByAccount } from "@/lib/sales/customers";
+import {
+  buildCustomerFlags,
+  formatCustomerStatus,
+  formatDate,
+  formatDateTime,
+  formatDeliveryMethod,
+  formatEquipmentStatus,
+  formatMoneyFromPence,
+  formatOrderStatus,
+  formatProductType,
+  getAddressLines,
+  getCustomerByAccountFromDb,
+  getCustomerStatusTone
+} from "@/lib/sales/customer-db";
 
 const tabs = [
   { label: "Overview", href: "#overview" },
@@ -31,16 +44,23 @@ export default async function CustomerDetailPage({
   params: Promise<{ account: string }>;
 }) {
   const { account } = await params;
-  const customer = getCustomerByAccount(decodeURIComponent(account));
+  const customer = await getCustomerByAccountFromDb(decodeURIComponent(account));
 
   if (!customer) {
     notFound();
   }
 
+  const invoiceAddress = getAddressLines(customer.addresses, "INVOICE");
+  const deliveryAddress = getAddressLines(customer.addresses, "DELIVERY");
+  const alternativeAddresses = customer.addresses.filter((address) => address.type === "ALTERNATIVE_DELIVERY");
+  const flags = buildCustomerFlags(customer);
+  const coffeeProducts = customer.productAccess.filter((access) => access.product.productType === "COFFEE");
+  const retailProducts = customer.productAccess.filter((access) => access.product.productType === "RETAIL");
+
   return (
     <PortalShell
       title={customer.siteName}
-      subtitle={`${customer.accountNumber} · ${customer.legalName}`}
+      subtitle={`${customer.accountNumber} · ${customer.legalName || "No legal name recorded"}`}
       activeHref="/portal/sales/customers"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -77,31 +97,37 @@ export default async function CustomerDetailPage({
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={customer.status} tone={customer.statusTone} />
-                <Badge tone={customer.priceVisibility === "On" ? "success" : "warning"}>
-                  Prices {customer.priceVisibility}
+                <StatusBadge
+                  status={formatCustomerStatus(customer.status)}
+                  tone={getCustomerStatusTone(customer.status)}
+                />
+                <Badge tone={customer.priceVisibility ? "success" : "warning"}>
+                  Prices {customer.priceVisibility ? "On" : "Off"}
                 </Badge>
                 <Badge tone={customer.onCallList ? "info" : "neutral"}>
                   {customer.onCallList ? "On call list" : "Not on call list"}
                 </Badge>
-                <Badge>{customer.deliveryMethod}</Badge>
+                <Badge>{formatDeliveryMethod(customer.deliveryMethod)}</Badge>
               </div>
 
               <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">{customer.siteName}</h2>
-              <p className="text-sm text-freshpac-grey">{customer.legalName}</p>
+              <p className="text-sm text-freshpac-grey">{customer.legalName || "No legal name recorded"}</p>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <DetailField label="Account" value={customer.accountNumber} />
-                <DetailField label="Delivery" value={`${customer.deliveryDay} · ${customer.driverOrCourier}`} />
-                <DetailField label="Cut-off" value={customer.nextCutOff} />
-                <DetailField label="Sales rep" value={customer.assignedSalesRep} />
+                <DetailField
+                  label="Delivery"
+                  value={`${customer.deliveryDay || "Not set"} · ${customer.driverOrCourier || formatDeliveryMethod(customer.deliveryMethod)}`}
+                />
+                <DetailField label="Contact day" value={customer.contactDay || "Not set"} />
+                <DetailField label="Sales rep" value={customer.assignedSalesRep || "Unassigned"} />
               </div>
             </div>
 
             <div className="rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">Account flags</p>
               <div className="mt-3 space-y-2">
-                {customer.flags.map((flag) => (
+                {flags.map((flag) => (
                   <div key={flag.label} className="rounded-xl border border-freshpac-panel bg-white p-3">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-bold text-freshpac-charcoal">{flag.label}</p>
@@ -143,21 +169,24 @@ export default async function CustomerDetailPage({
           }
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <DetailField label="Parent account" value={customer.parentAccount} />
-            <DetailField label="Linked children" value={customer.linkedChildren.length ? customer.linkedChildren.join(", ") : "None"} />
-            <DetailField label="Opened" value={customer.accountOpened} />
-            <DetailField label="Last order" value={customer.lastOrderDate} />
-            <DetailField label="Contact day" value={customer.contactDay} />
-            <DetailField label="Contact frequency" value={customer.contactFrequency} />
-            <DetailField label="Delivery method" value={customer.deliveryMethod} />
-            <DetailField label="Driver / courier" value={customer.driverOrCourier} />
+            <DetailField label="Parent account" value={customer.parentAccount?.accountNumber || "None"} />
+            <DetailField
+              label="Linked children"
+              value={customer.childAccounts.length ? customer.childAccounts.map((child) => child.accountNumber).join(", ") : "None"}
+            />
+            <DetailField label="Opened" value={formatDate(customer.accountOpenedAt)} />
+            <DetailField label="Orders" value={String(customer.orders.length)} />
+            <DetailField label="Contact day" value={customer.contactDay || "Not set"} />
+            <DetailField label="Contact frequency" value={`Every ${customer.contactFrequencyWeeks} week(s)`} />
+            <DetailField label="Delivery method" value={formatDeliveryMethod(customer.deliveryMethod)} />
+            <DetailField label="Driver / courier" value={customer.driverOrCourier || "Not set"} />
           </div>
         </ModuleSection>
 
         <ModuleSection
           id="contacts"
           title="Contacts"
-          description="Up to four customer contacts will be supported when this is wired to the database."
+          description="Customer contacts from the database."
           action={
             <Button type="button" variant="secondary" size="sm">
               <Plus className="mr-2 size-4" />
@@ -165,41 +194,51 @@ export default async function CustomerDetailPage({
             </Button>
           }
         >
-          <div className="grid gap-3 lg:grid-cols-2">
-            {customer.contacts.map((contact) => (
-              <div key={contact.email} className="rounded-2xl border border-freshpac-panel bg-white p-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-black text-freshpac-charcoal">{contact.name}</p>
-                    <p className="text-sm text-freshpac-grey">{contact.role}</p>
+          {customer.contacts.length ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {customer.contacts.map((contact) => (
+                <div key={contact.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-black text-freshpac-charcoal">{contact.name}</p>
+                      <p className="text-sm text-freshpac-grey">{contact.role || "No role recorded"}</p>
+                    </div>
+                    {contact.isPrimary ? <Badge tone="success">Primary</Badge> : null}
                   </div>
-                  {contact.primary ? <Badge tone="success">Primary</Badge> : null}
+                  <div className="mt-3 grid gap-2 text-sm">
+                    <p>
+                      <span className="font-bold text-freshpac-charcoal">Phone:</span> {contact.phone || "Not recorded"}
+                    </p>
+                    <p>
+                      <span className="font-bold text-freshpac-charcoal">Email:</span> {contact.email || "Not recorded"}
+                    </p>
+                  </div>
                 </div>
-                <div className="mt-3 grid gap-2 text-sm">
-                  <p>
-                    <span className="font-bold text-freshpac-charcoal">Phone:</span> {contact.phone}
-                  </p>
-                  <p>
-                    <span className="font-bold text-freshpac-charcoal">Email:</span> {contact.email}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No contacts recorded." />
+          )}
         </ModuleSection>
 
         <ModuleSection id="delivery" title="Delivery" description="Invoice, delivery and alternative address details.">
           <div className="grid gap-4 lg:grid-cols-3">
-            <AddressCard title="Invoice address" lines={customer.invoiceAddress} />
-            <AddressCard title="Delivery address" lines={customer.deliveryAddress} />
+            <AddressCard title="Invoice address" lines={invoiceAddress} />
+            <AddressCard title="Delivery address" lines={deliveryAddress} />
             <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
               <p className="font-black text-freshpac-charcoal">Alternative delivery addresses</p>
               <div className="mt-3 space-y-2">
-                {customer.alternativeDeliveryAddresses.map((address) => (
-                  <p key={address} className="rounded-xl bg-freshpac-cream/70 p-3 text-sm text-freshpac-charcoal">
-                    {address}
-                  </p>
-                ))}
+                {alternativeAddresses.length ? (
+                  alternativeAddresses.map((address) => (
+                    <div key={address.id} className="rounded-xl bg-freshpac-cream/70 p-3 text-sm text-freshpac-charcoal">
+                      {address.lines.map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
+                    </div>
+                  ))
+                ) : (
+                  <p className="rounded-xl bg-freshpac-cream/70 p-3 text-sm text-freshpac-grey">None recorded.</p>
+                )}
               </div>
             </div>
           </div>
@@ -216,30 +255,36 @@ export default async function CustomerDetailPage({
             </Button>
           }
         >
-          <div className="overflow-x-auto">
-            <table className="fp-compact-table min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Product</th>
-                  <th>Default</th>
-                  <th>Customer</th>
-                  <th>VAT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customer.pricing.map((line) => (
-                  <tr key={line.productCode}>
-                    <td className="font-bold">{line.productCode}</td>
-                    <td>{line.productName}</td>
-                    <td>{line.defaultPrice}</td>
-                    <td className="font-black text-freshpac-charcoal">{line.customerPrice}</td>
-                    <td>{line.vat}</td>
+          {customer.prices.length ? (
+            <div className="overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Product</th>
+                    <th>Type</th>
+                    <th>Default ex VAT</th>
+                    <th>Customer ex VAT</th>
+                    <th>VAT</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {customer.prices.map((line) => (
+                    <tr key={line.id}>
+                      <td className="font-bold">{line.product.code}</td>
+                      <td>{line.product.name}</td>
+                      <td>{formatProductType(line.product.productType)}</td>
+                      <td>{formatMoneyFromPence(line.product.priceExVatPence)}</td>
+                      <td className="font-black text-freshpac-charcoal">{formatMoneyFromPence(line.priceExVatPence)}</td>
+                      <td>{line.product.vatCode}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="No customer-specific pricing recorded." />
+          )}
         </ModuleSection>
 
         <ModuleSection
@@ -254,166 +299,189 @@ export default async function CustomerDetailPage({
           }
         >
           <div className="grid gap-4 lg:grid-cols-2">
-            <ProductList title="Coffee products" products={customer.coffeeProducts} />
-            <ProductList title="Retail products" products={customer.retailProducts} emptyText="No retail products assigned." />
+            <ProductList
+              title="Coffee products"
+              products={coffeeProducts.map((access) => `${access.product.code} · ${access.product.name}`)}
+              emptyText="No coffee products assigned."
+            />
+            <ProductList
+              title="Retail products"
+              products={retailProducts.map((access) => `${access.product.code} · ${access.product.name}`)}
+              emptyText="No retail products assigned."
+            />
           </div>
         </ModuleSection>
 
         <ModuleSection id="equipment" title="Equipment onsite" description="Machine records, serial numbers, status and service information.">
-          <div className="overflow-x-auto">
-            <table className="fp-compact-table min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th>Make / model</th>
-                  <th>Serial</th>
-                  <th>Status</th>
-                  <th>Installed</th>
-                  <th>Last service</th>
-                  <th>Cover</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customer.equipment.map((item) => (
-                  <tr key={item.serialNumber}>
-                    <td>{item.description}</td>
-                    <td>{item.makeModel}</td>
-                    <td className="font-bold">{item.serialNumber}</td>
-                    <td>
-                      <StatusBadge status={item.status} />
-                    </td>
-                    <td>{item.installedDate}</td>
-                    <td>{item.lastServiceDate}</td>
-                    <td>{item.breakdownCover}</td>
+          {customer.equipment.length ? (
+            <div className="overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Make / model</th>
+                    <th>Serial</th>
+                    <th>Status</th>
+                    <th>Installed</th>
+                    <th>Last service</th>
+                    <th>Cover</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {customer.equipment.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.description}</td>
+                      <td>{item.makeModel || "Not recorded"}</td>
+                      <td className="font-bold">{item.serialNumber || "Not recorded"}</td>
+                      <td>
+                        <StatusBadge status={formatEquipmentStatus(item.status)} />
+                      </td>
+                      <td>{formatDate(item.installedAt)}</td>
+                      <td>{formatDate(item.lastServiceAt)}</td>
+                      <td>{item.breakdownCover || "None"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="No equipment recorded." />
+          )}
         </ModuleSection>
 
         <ModuleSection id="instructions" title="Special instructions" description="Important customer-specific handling, access and delivery notes.">
-          <div className="grid gap-2">
-            {customer.specialInstructions.map((instruction) => (
-              <div key={instruction} className="rounded-xl border border-freshpac-panel bg-white p-3 text-sm font-semibold text-freshpac-charcoal">
-                {instruction}
-              </div>
-            ))}
-          </div>
-        </ModuleSection>
-
-        <ModuleSection id="breakdowns" title="Breakdown history" description="Machine breakdowns, service outcomes and chargeable indicators.">
-          <div className="overflow-x-auto">
-            <table className="fp-compact-table min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Job</th>
-                  <th>Machine</th>
-                  <th>Fault</th>
-                  <th>Outcome</th>
-                  <th>Chargeable</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customer.breakdownHistory.map((job) => (
-                  <tr key={job.jobRef}>
-                    <td>{job.date}</td>
-                    <td className="font-bold">{job.jobRef}</td>
-                    <td>{job.machine}</td>
-                    <td>{job.fault}</td>
-                    <td>{job.outcome}</td>
-                    <td>{job.chargeable}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </ModuleSection>
-
-        <ModuleSection id="notes" title="Notes" description="Searchable customer notes with internal or customer-visible status.">
-          <div className="space-y-3">
-            {customer.notes.map((note) => (
-              <div key={`${note.date}-${note.author}`} className="rounded-2xl border border-freshpac-panel bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-black text-freshpac-charcoal">{note.author}</p>
-                  <div className="flex gap-2">
-                    <Badge>{note.date}</Badge>
-                    <Badge tone={note.visibility === "Internal" ? "neutral" : "info"}>{note.visibility}</Badge>
-                  </div>
-                </div>
-                <p className="mt-2 text-sm text-freshpac-charcoal">{note.note}</p>
-              </div>
-            ))}
-          </div>
-        </ModuleSection>
-
-        <ModuleSection id="rental" title="Rental information" description="Rental notes and machine loan/rental records.">
-          {customer.rentalInformation.length ? (
-            <div className="grid gap-3">
-              {customer.rentalInformation.map((rental) => (
-                <div key={rental.machine} className="rounded-2xl border border-freshpac-panel bg-white p-4">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <DetailField label="Machine" value={rental.machine} />
-                    <DetailField label="Rental amount" value={rental.rentalAmount} />
-                    <DetailField label="Condition" value={rental.condition} />
-                    <DetailField label="Start date" value={rental.rentalStartDate} />
-                    <DetailField label="Duration" value={rental.duration} />
-                    <DetailField label="Install date" value={rental.installationDate} />
-                  </div>
-                  <p className="mt-3 rounded-xl bg-freshpac-cream/70 p-3 text-sm text-freshpac-charcoal">{rental.note}</p>
+          {customer.notes.length ? (
+            <div className="grid gap-2">
+              {customer.notes.slice(0, 4).map((note) => (
+                <div key={note.id} className="rounded-xl border border-freshpac-panel bg-white p-3 text-sm font-semibold text-freshpac-charcoal">
+                  {note.note}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-              No rental information recorded.
-            </p>
+            <EmptyState message="No special instructions recorded yet." />
+          )}
+        </ModuleSection>
+
+        <ModuleSection id="breakdowns" title="Breakdown history" description="Engineer jobs linked to this customer.">
+          {customer.engineerJobs.length ? (
+            <div className="overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Job</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Fault</th>
+                    <th>Chargeable</th>
+                    <th>Parts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customer.engineerJobs.map((job) => (
+                    <tr key={job.id}>
+                      <td>{formatDate(job.createdAt)}</td>
+                      <td className="font-bold">{job.reference || job.temporaryReference || "No ref"}</td>
+                      <td>{job.status}</td>
+                      <td>{job.jobTypes.join(", ")}</td>
+                      <td>{job.reportedFault || "No fault recorded"}</td>
+                      <td>{job.chargeable}</td>
+                      <td>{job.partsRequests.length}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="No engineer jobs recorded." />
+          )}
+        </ModuleSection>
+
+        <ModuleSection id="notes" title="Notes" description="Searchable customer notes with internal or customer-visible status.">
+          {customer.notes.length ? (
+            <div className="space-y-3">
+              {customer.notes.map((note) => (
+                <div key={note.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-black text-freshpac-charcoal">{note.createdByUser?.fullName || "Unknown user"}</p>
+                    <div className="flex gap-2">
+                      <Badge>{formatDateTime(note.createdAt)}</Badge>
+                      <Badge tone={note.visibility === "internal" ? "neutral" : "info"}>{note.visibility}</Badge>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm text-freshpac-charcoal">{note.note}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No notes recorded." />
+          )}
+        </ModuleSection>
+
+        <ModuleSection id="rental" title="Rental information" description="Rental notes and machine loan/rental records.">
+          {customer.equipment.some((item) => item.rentalAmountPence || item.rentalNotes) ? (
+            <div className="grid gap-3">
+              {customer.equipment
+                .filter((item) => item.rentalAmountPence || item.rentalNotes)
+                .map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <DetailField label="Machine" value={item.description} />
+                      <DetailField label="Rental amount" value={formatMoneyFromPence(item.rentalAmountPence)} />
+                      <DetailField label="Condition" value={item.machineCondition || "Not recorded"} />
+                      <DetailField label="Start date" value={formatDate(item.rentalStartAt)} />
+                      <DetailField label="Duration" value={item.rentalDuration || "Not recorded"} />
+                      <DetailField label="Install date" value={formatDate(item.installedAt)} />
+                    </div>
+                    <p className="mt-3 rounded-xl bg-freshpac-cream/70 p-3 text-sm text-freshpac-charcoal">
+                      {item.rentalNotes || "No rental note."}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          ) : (
+            <EmptyState message="No rental information recorded." />
           )}
         </ModuleSection>
 
         <ModuleSection id="orders" title="Orders" description="Recent order history for this account.">
-          <div className="overflow-x-auto">
-            <table className="fp-compact-table min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th>Reference</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Total</th>
-                  <th>Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customer.orders.map((order) => (
-                  <tr key={order.reference}>
-                    <td className="font-bold">{order.reference}</td>
-                    <td>{order.date}</td>
-                    <td>
-                      <StatusBadge status={order.status} />
-                    </td>
-                    <td>{order.total}</td>
-                    <td>{order.source}</td>
+          {customer.orders.length ? (
+            <div className="overflow-x-auto">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Reference</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Total inc VAT</th>
+                    <th>Source</th>
+                    <th>Lines</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {customer.orders.map((order) => (
+                    <tr key={order.id}>
+                      <td className="font-bold">{order.reference || order.temporaryReference || "No reference"}</td>
+                      <td>{formatDate(order.createdAt)}</td>
+                      <td>
+                        <StatusBadge status={formatOrderStatus(order.status)} />
+                      </td>
+                      <td>{formatMoneyFromPence(order.totalIncVatPence)}</td>
+                      <td>{order.source}</td>
+                      <td>{order.lines.length}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState message="No orders recorded." />
+          )}
         </ModuleSection>
 
-        <ModuleSection id="audit" title="Audit history" description="Important customer events and system changes.">
-          <div className="space-y-3">
-            {customer.audit.map((event) => (
-              <div key={`${event.date}-${event.action}`} className="rounded-2xl border border-freshpac-panel bg-white p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-black text-freshpac-charcoal">{event.action}</p>
-                  <Badge>{event.date}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-freshpac-grey">By {event.user}</p>
-                <p className="mt-2 text-sm text-freshpac-charcoal">{event.note}</p>
-              </div>
-            ))}
-          </div>
+        <ModuleSection id="audit" title="Audit history" description="Audit log wiring comes next. This panel is ready for account-specific audit events.">
+          <EmptyState message="Account-specific audit timeline will be wired after the audit module is added." />
         </ModuleSection>
 
         <div className="flex justify-end">
@@ -439,7 +507,15 @@ function AddressCard({ title, lines }: { title: string; lines: string[] }) {
   );
 }
 
-function ProductList({ title, products, emptyText = "No products assigned." }: { title: string; products: string[]; emptyText?: string }) {
+function ProductList({
+  title,
+  products,
+  emptyText = "No products assigned."
+}: {
+  title: string;
+  products: string[];
+  emptyText?: string;
+}) {
   return (
     <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
       <p className="font-black text-freshpac-charcoal">{title}</p>
@@ -455,5 +531,13 @@ function ProductList({ title, products, emptyText = "No products assigned." }: {
         )}
       </div>
     </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+      {message}
+    </p>
   );
 }
