@@ -1,6 +1,12 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CheckCircle2, ClipboardList, Filter, Phone, Search, ShoppingBasket, UserRoundCheck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Filter, Phone, Search, ShoppingBasket, UserRoundCheck } from "lucide-react";
+import {
+  markCallListCalled,
+  markCallListNeedsContact,
+  markCallListNothingNeeded,
+  updateCallListNotes
+} from "@/app/portal/sales/call-list/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,7 +90,7 @@ export default async function CallListPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -146,9 +152,7 @@ export default async function CallListPage() {
                         </td>
                         <td>
                           <div className="font-semibold">{entry.contactDay || entry.customer.contactDay || "Not set"}</div>
-                          <div className="text-xs text-freshpac-grey">
-                            Every {entry.customer.contactFrequencyWeeks} week(s)
-                          </div>
+                          <div className="text-xs text-freshpac-grey">Every {entry.customer.contactFrequencyWeeks} week(s)</div>
                         </td>
                         <td>{entry.assignedSalesRep || entry.customer.assignedSalesRep || "Unassigned"}</td>
                         <td>
@@ -160,18 +164,35 @@ export default async function CallListPage() {
                         </td>
                         <td>{getLatestOrderText(entry.customer.orders)}</td>
                         <td>
-                          <div className="flex min-w-56 flex-wrap gap-2">
+                          <div className="flex min-w-72 flex-wrap gap-2">
                             <Link
                               href={`/portal/sales/customers/${entry.customer.accountNumber}`}
                               className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
                             >
-                              Open account
+                              Open
                             </Link>
+
+                            <form action={markCallListCalled}>
+                              <input type="hidden" name="entryId" value={entry.id} />
+                              <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
+                              <Button type="submit" size="sm" variant="secondary">
+                                Called
+                              </Button>
+                            </form>
+
+                            <form action={markCallListNothingNeeded}>
+                              <input type="hidden" name="entryId" value={entry.id} />
+                              <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
+                              <Button type="submit" size="sm" variant="secondary">
+                                Nothing
+                              </Button>
+                            </form>
+
                             <Link
                               href="/portal/sales/orders/new"
                               className="rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:bg-orange-400"
                             >
-                              Place order
+                              Order
                             </Link>
                           </div>
                         </td>
@@ -193,21 +214,28 @@ export default async function CallListPage() {
         <div className="grid content-start gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>Call actions</CardTitle>
-              <CardDescription>These will become write actions next.</CardDescription>
+              <CardTitle>Quick update</CardTitle>
+              <CardDescription>Update the first call-list entry notes quickly.</CardDescription>
             </CardHeader>
 
-            <CardContent className="grid gap-2">
-              <Button type="button">Mark called</Button>
-              <Button type="button" variant="secondary">
-                Mark Nothing Needed
-              </Button>
-              <Button type="button" variant="secondary">
-                Create order from basket
-              </Button>
-              <Button type="button" variant="secondary">
-                Add customer note
-              </Button>
+            <CardContent>
+              {entries[0] ? (
+                <form action={updateCallListNotes} className="grid gap-3">
+                  <input type="hidden" name="entryId" value={entries[0].id} />
+                  <input type="hidden" name="accountNumber" value={entries[0].customer.accountNumber} />
+                  <p className="text-sm font-bold text-freshpac-charcoal">{entries[0].customer.siteName}</p>
+                  <textarea
+                    name="notes"
+                    defaultValue={entries[0].notes || ""}
+                    placeholder="Update call notes..."
+                    className="min-h-28 w-full rounded-2xl border border-freshpac-panel bg-white px-3 py-2 text-sm text-freshpac-charcoal outline-none transition placeholder:text-freshpac-grey/70 focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
+                    required
+                  />
+                  <Button type="submit">Save call note</Button>
+                </form>
+              ) : (
+                <p className="text-sm text-freshpac-grey">No call list entry available.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -219,28 +247,38 @@ export default async function CallListPage() {
 
             <CardContent className="space-y-3">
               {attentionEntries.map((entry) => (
-                <Link
-                  href={`/portal/sales/customers/${entry.customer.accountNumber}`}
+                <div
                   key={entry.id}
-                  className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
+                  className="rounded-2xl border border-freshpac-panel bg-white p-3"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black text-freshpac-charcoal">{entry.customer.siteName}</p>
-                      <p className="text-xs text-freshpac-grey">{entry.customer.accountNumber}</p>
+                  <Link href={`/portal/sales/customers/${entry.customer.accountNumber}`} className="block">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-freshpac-charcoal">{entry.customer.siteName}</p>
+                        <p className="text-xs text-freshpac-grey">{entry.customer.accountNumber}</p>
+                      </div>
+                      <Badge tone={getCustomerStatusTone(entry.customer.status)}>
+                        {formatCustomerStatus(entry.customer.status)}
+                      </Badge>
                     </div>
-                    <Badge tone={getCustomerStatusTone(entry.customer.status)}>
-                      {formatCustomerStatus(entry.customer.status)}
-                    </Badge>
-                  </div>
 
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    <Badge tone={getCallListStatusTone(entry.status)}>{formatCallListStatus(entry.status)}</Badge>
-                    <Badge tone={getBasketStatusTone(entry.basketStatus)}>{formatBasketStatus(entry.basketStatus)}</Badge>
-                  </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <Badge tone={getCallListStatusTone(entry.status)}>{formatCallListStatus(entry.status)}</Badge>
+                      <Badge tone={getBasketStatusTone(entry.basketStatus)}>{formatBasketStatus(entry.basketStatus)}</Badge>
+                    </div>
 
-                  <p className="mt-2 text-xs text-freshpac-grey">{entry.notes || "No notes recorded."}</p>
-                </Link>
+                    <p className="mt-2 text-xs text-freshpac-grey">{entry.notes || "No notes recorded."}</p>
+                  </Link>
+
+                  <form action={markCallListNeedsContact} className="mt-3">
+                    <input type="hidden" name="entryId" value={entry.id} />
+                    <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
+                    <Button type="submit" size="sm" variant="secondary">
+                      <AlertTriangle className="mr-2 size-4" />
+                      Keep flagged
+                    </Button>
+                  </form>
+                </div>
               ))}
 
               {!attentionEntries.length ? (
