@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Banknote, FileText, Pencil, Printer, RotateCcw, Truck } from "lucide-react";
+import { ArrowLeft, Banknote, FileText, Pencil, Printer, RotateCcw, Truck, XCircle } from "lucide-react";
+import {
+  cancelOrder,
+  markOrderPaid,
+  markOrderProcessed,
+  updateOrderInternalNotes
+} from "@/app/portal/sales/orders/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
 import { ModuleSection } from "@/components/sales/module-section";
@@ -65,17 +71,42 @@ export default async function OrderDetailPage({
         </Link>
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="secondary" size="sm">
-            <Pencil className="mr-2 size-4" />
-            Edit order
-          </Button>
+          {order.status === "AWAITING_PAYMENT" ? (
+            <form action={markOrderPaid}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="reference" value={orderReference} />
+              <Button type="submit" variant="secondary" size="sm">
+                <Banknote className="mr-2 size-4" />
+                Mark paid
+              </Button>
+            </form>
+          ) : null}
+
+          {order.status !== "PROCESSED" && order.status !== "CANCELLED" ? (
+            <form action={markOrderProcessed}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="reference" value={orderReference} />
+              <Button type="submit" size="sm">
+                <Printer className="mr-2 size-4" />
+                Mark processed
+              </Button>
+            </form>
+          ) : null}
+
+          {order.status !== "CANCELLED" ? (
+            <form action={cancelOrder}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="reference" value={orderReference} />
+              <Button type="submit" variant="secondary" size="sm">
+                <XCircle className="mr-2 size-4" />
+                Cancel
+              </Button>
+            </form>
+          ) : null}
+
           <Button type="button" variant="secondary" size="sm">
             <RotateCcw className="mr-2 size-4" />
             Reprint
-          </Button>
-          <Button type="button" size="sm">
-            <Printer className="mr-2 size-4" />
-            Print order
           </Button>
         </div>
       </div>
@@ -113,10 +144,7 @@ export default async function OrderDetailPage({
 
               <div className="mt-3 grid gap-2">
                 <RuleCard label="Minimum order" value={order.minimumOrderPassed === false ? "Below minimum" : "Passed / not required"} />
-                <RuleCard
-                  label="Carriage"
-                  value={formatOrderMoney(order.carriageIncVatPence, priceVisible)}
-                />
+                <RuleCard label="Carriage" value={formatOrderMoney(order.carriageIncVatPence, priceVisible)} />
                 <RuleCard label="Print status" value={order.status === "PROCESSED" ? "Printed / processed" : "Not printed"} />
                 <RuleCard label="Payment" value={order.status === "AWAITING_PAYMENT" ? "Awaiting payment" : "Not required"} />
               </div>
@@ -215,9 +243,7 @@ export default async function OrderDetailPage({
               </tbody>
             </table>
 
-            {!order.lines.length ? (
-              <div className="p-6 text-sm text-freshpac-grey">No order lines recorded.</div>
-            ) : null}
+            {!order.lines.length ? <div className="p-6 text-sm text-freshpac-grey">No order lines recorded.</div> : null}
           </div>
         </ModuleSection>
 
@@ -229,16 +255,31 @@ export default async function OrderDetailPage({
         </ModuleSection>
 
         <ModuleSection id="notes" title="Notes" description="Customer notes and Freshpac internal handling notes.">
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
               <p className="font-black text-freshpac-charcoal">Customer notes</p>
               <p className="mt-2 text-sm text-freshpac-charcoal">{order.customerNotes || "No customer notes."}</p>
             </div>
 
-            <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
+            <form action={updateOrderInternalNotes} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="reference" value={orderReference} />
+
               <p className="font-black text-freshpac-charcoal">Internal notes</p>
-              <p className="mt-2 text-sm text-freshpac-charcoal">{order.internalNotes || "No internal notes."}</p>
-            </div>
+              <p className="mt-1 text-sm text-freshpac-grey">Update Freshpac-only handling notes.</p>
+
+              <textarea
+                name="internalNotes"
+                defaultValue={order.internalNotes || ""}
+                placeholder="Freshpac-only handling notes..."
+                className="mt-3 min-h-32 w-full rounded-2xl border border-freshpac-panel bg-white px-3 py-2 text-sm text-freshpac-charcoal outline-none transition placeholder:text-freshpac-grey/70 focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
+                required
+              />
+
+              <div className="mt-3 flex justify-end">
+                <Button type="submit">Save notes</Button>
+              </div>
+            </form>
           </div>
         </ModuleSection>
 
@@ -247,10 +288,14 @@ export default async function OrderDetailPage({
           title="Print and process"
           description="Order processing should only mark as processed after Freshpac confirms the PDFs printed successfully."
           action={
-            <Button type="button" size="sm">
-              <Printer className="mr-2 size-4" />
-              Print now
-            </Button>
+            <form action={markOrderProcessed}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="reference" value={orderReference} />
+              <Button type="submit" size="sm">
+                <Printer className="mr-2 size-4" />
+                Confirm processed
+              </Button>
+            </form>
           }
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -306,7 +351,7 @@ export default async function OrderDetailPage({
   );
 }
 
-function AddressCard({ title, lines }: { title: string; lines: string[] }) {
+function AddressCard({ title, lines }: { title: string[] | string; lines: string[] }) {
   return (
     <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
       <p className="font-black text-freshpac-charcoal">{title}</p>

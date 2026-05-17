@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ClipboardList, Coffee, FileText, Pencil, Plus, Printer, ShoppingBasket, Wrench } from "lucide-react";
+import { addCustomerNote } from "@/app/portal/sales/customers/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
 import { ModuleSection } from "@/components/sales/module-section";
@@ -97,10 +98,7 @@ export default async function CustomerDetailPage({
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge
-                  status={formatCustomerStatus(customer.status)}
-                  tone={getCustomerStatusTone(customer.status)}
-                />
+                <StatusBadge status={formatCustomerStatus(customer.status)} tone={getCustomerStatusTone(customer.status)} />
                 <Badge tone={customer.priceVisibility ? "success" : "warning"}>
                   Prices {customer.priceVisibility ? "On" : "Off"}
                 </Badge>
@@ -399,24 +397,50 @@ export default async function CustomerDetailPage({
         </ModuleSection>
 
         <ModuleSection id="notes" title="Notes" description="Searchable customer notes with internal or customer-visible status.">
-          {customer.notes.length ? (
-            <div className="space-y-3">
-              {customer.notes.map((note) => (
-                <div key={note.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-black text-freshpac-charcoal">{note.createdByUser?.fullName || "Unknown user"}</p>
-                    <div className="flex gap-2">
-                      <Badge>{formatDateTime(note.createdAt)}</Badge>
-                      <Badge tone={note.visibility === "internal" ? "neutral" : "info"}>{note.visibility}</Badge>
+          <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+            <form action={addCustomerNote} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+              <input type="hidden" name="customerId" value={customer.id} />
+              <input type="hidden" name="accountNumber" value={customer.accountNumber} />
+              <input type="hidden" name="visibility" value="internal" />
+
+              <p className="font-black text-freshpac-charcoal">Add note</p>
+              <p className="mt-1 text-sm text-freshpac-grey">
+                Add an internal account note. This will also create an audit event.
+              </p>
+
+              <textarea
+                name="note"
+                required
+                placeholder="Type customer note..."
+                className="mt-3 min-h-32 w-full rounded-2xl border border-freshpac-panel bg-white px-3 py-2 text-sm text-freshpac-charcoal outline-none transition placeholder:text-freshpac-grey/70 focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
+              />
+
+              <div className="mt-3 flex justify-end">
+                <Button type="submit">Add note</Button>
+              </div>
+            </form>
+
+            <div>
+              {customer.notes.length ? (
+                <div className="space-y-3">
+                  {customer.notes.map((note) => (
+                    <div key={note.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-black text-freshpac-charcoal">{note.createdByUser?.fullName || "Unknown user"}</p>
+                        <div className="flex gap-2">
+                          <Badge>{formatDateTime(note.createdAt)}</Badge>
+                          <Badge tone={note.visibility === "internal" ? "neutral" : "info"}>{note.visibility}</Badge>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm text-freshpac-charcoal">{note.note}</p>
                     </div>
-                  </div>
-                  <p className="mt-2 text-sm text-freshpac-charcoal">{note.note}</p>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <EmptyState message="No notes recorded." />
+              )}
             </div>
-          ) : (
-            <EmptyState message="No notes recorded." />
-          )}
+          </div>
         </ModuleSection>
 
         <ModuleSection id="rental" title="Rental information" description="Rental notes and machine loan/rental records.">
