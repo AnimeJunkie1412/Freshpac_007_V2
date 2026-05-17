@@ -4,11 +4,23 @@ import { ArrowLeft, Banknote, FileText, Pencil, Printer, RotateCcw, Truck } from
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
 import { ModuleSection } from "@/components/sales/module-section";
-import { StatusBadge } from "@/components/sales/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { getOrderByReference, orderSourceTone, orderStatusTone } from "@/lib/sales/orders";
+import {
+  buildOrderAuditPreview,
+  formatDateTime,
+  formatDeliveryMethod,
+  formatOrderLineSource,
+  formatOrderMoney,
+  formatOrderSource,
+  formatOrderStatus,
+  getAddressLines,
+  getOrderByReferenceFromDb,
+  getOrderReference,
+  getOrderSourceTone,
+  getOrderStatusTone
+} from "@/lib/sales/order-db";
 
 const tabs = [
   { label: "Overview", href: "#overview" },
@@ -25,16 +37,22 @@ export default async function OrderDetailPage({
   params: Promise<{ reference: string }>;
 }) {
   const { reference } = await params;
-  const order = getOrderByReference(decodeURIComponent(reference));
+  const order = await getOrderByReferenceFromDb(decodeURIComponent(reference));
 
   if (!order) {
     notFound();
   }
 
+  const orderReference = getOrderReference(order);
+  const priceVisible = order.priceVisibilityAtOrder;
+  const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
+  const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
+  const auditEvents = buildOrderAuditPreview(order);
+
   return (
     <PortalShell
-      title={order.reference}
-      subtitle={`${order.siteName} · ${order.accountNumber}`}
+      title={orderReference}
+      subtitle={`${order.customer.siteName} · ${order.customer.accountNumber}`}
       activeHref="/portal/sales/orders"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -67,38 +85,40 @@ export default async function OrderDetailPage({
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={order.status} tone={orderStatusTone[order.status]} />
-                <Badge tone={orderSourceTone[order.source]}>{order.source}</Badge>
-                <Badge tone={order.priceVisibility === "On" ? "success" : "warning"}>
-                  Prices {order.priceVisibility}
+                <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
+                <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                <Badge tone={order.priceVisibilityAtOrder ? "success" : "warning"}>
+                  Prices {order.priceVisibilityAtOrder ? "On" : "Off"}
                 </Badge>
-                {order.priceVisibility === "Off" ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
+                {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
                 {order.editedByFreshpac ? <Badge tone="warning">Edited by Freshpac</Badge> : null}
               </div>
 
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">
-                {order.reference}
-              </h2>
-              <p className="text-sm text-freshpac-grey">{order.siteName}</p>
+              <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">{orderReference}</h2>
+              <p className="text-sm text-freshpac-grey">{order.customer.siteName}</p>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <DetailField label="Order date" value={order.orderDate} />
-                <DetailField label="Delivery" value={`${order.requiredDeliveryDay} · ${order.driverOrCourier}`} />
-                <DetailField label="Submitted by" value={order.submittedBy} />
-                <DetailField label="Customer PO" value={order.customerOrderNumber || "None"} />
+                <DetailField label="Order date" value={formatDateTime(order.createdAt)} />
+                <DetailField
+                  label="Delivery"
+                  value={`${order.deliveryDay || order.customer.deliveryDay || "Not set"} · ${order.driverOrCourier || order.customer.driverOrCourier || "No driver"}`}
+                />
+                <DetailField label="Submitted by" value={order.placedByUser?.fullName || "System"} />
+                <DetailField label="Customer PO" value={order.customerPoNumber || "None"} />
               </div>
             </div>
 
             <div className="rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">
-                Order controls
-              </p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">Order controls</p>
 
               <div className="mt-3 grid gap-2">
-                <RuleCard label="Minimum order" value={order.minimumOrderCheck} />
-                <RuleCard label="Carriage" value={order.carriageCharge} />
-                <RuleCard label="Print status" value={order.printStatus} />
-                <RuleCard label="Payment" value={order.paymentStatus} />
+                <RuleCard label="Minimum order" value={order.minimumOrderPassed === false ? "Below minimum" : "Passed / not required"} />
+                <RuleCard
+                  label="Carriage"
+                  value={formatOrderMoney(order.carriageIncVatPence, priceVisible)}
+                />
+                <RuleCard label="Print status" value={order.status === "PROCESSED" ? "Printed / processed" : "Not printed"} />
+                <RuleCard label="Payment" value={order.status === "AWAITING_PAYMENT" ? "Awaiting payment" : "Not required"} />
               </div>
             </div>
           </div>
@@ -132,16 +152,16 @@ export default async function OrderDetailPage({
           }
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <DetailField label="Status" value={order.status} />
-            <DetailField label="Source" value={order.source} />
-            <DetailField label="Delivery method" value={order.deliveryMethod} />
-            <DetailField label="Price visibility" value={order.priceVisibility} />
-            <DetailField label="Payment status" value={order.paymentStatus} />
-            <DetailField label="Total ex VAT" value={order.totalExVat} />
-            <DetailField label="VAT total" value={order.vatTotal} />
-            <DetailField label="Total inc VAT" value={order.totalIncVat} />
-            <DetailField label="Carriage" value={order.carriageCharge} />
-            <DetailField label="Print status" value={order.printStatus} />
+            <DetailField label="Status" value={formatOrderStatus(order.status)} />
+            <DetailField label="Source" value={formatOrderSource(order.source)} />
+            <DetailField label="Delivery method" value={formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)} />
+            <DetailField label="Price visibility" value={order.priceVisibilityAtOrder ? "On" : "Off"} />
+            <DetailField label="Payment status" value={order.status === "AWAITING_PAYMENT" ? "Awaiting payment" : "Not required"} />
+            <DetailField label="Total ex VAT" value={formatOrderMoney(order.totalExVatPence, priceVisible)} />
+            <DetailField label="VAT total" value={formatOrderMoney(order.vatTotalPence, priceVisible)} />
+            <DetailField label="Total inc VAT" value={formatOrderMoney(order.totalIncVatPence, priceVisible)} />
+            <DetailField label="Carriage" value={formatOrderMoney(order.carriageIncVatPence, priceVisible)} />
+            <DetailField label="Processed at" value={order.processedAt ? formatDateTime(order.processedAt) : "Not processed"} />
           </div>
         </ModuleSection>
 
@@ -175,32 +195,36 @@ export default async function OrderDetailPage({
 
               <tbody>
                 {order.lines.map((line) => (
-                  <tr key={`${line.productCode}-${line.source}`}>
-                    <td className="font-bold">{line.productCode}</td>
-                    <td>{line.description}</td>
-                    <td>{line.packSize}</td>
+                  <tr key={line.id}>
+                    <td className="font-bold">{line.productCodeSnapshot}</td>
+                    <td>{line.descriptionSnapshot}</td>
+                    <td>{line.packSizeSnapshot || "None"}</td>
                     <td>{line.quantity}</td>
                     <td>
-                      <Badge tone={line.source === "Retail Order" || line.source === "Standing Order" ? "warning" : "neutral"}>
-                        {line.source}
+                      <Badge tone={line.source === "RETAIL_ORDER" || line.source === "STANDING_ORDER" ? "warning" : "neutral"}>
+                        {formatOrderLineSource(line.source)}
                       </Badge>
                     </td>
-                    <td>{line.priceExVat}</td>
-                    <td>{line.vatAmount}</td>
-                    <td>{line.priceIncVat}</td>
-                    <td className="font-bold">{line.lineTotal}</td>
-                    <td>{line.locked ? <Badge tone="warning">Locked</Badge> : <Badge>Editable</Badge>}</td>
+                    <td>{formatOrderMoney(line.priceExVatPence, priceVisible)}</td>
+                    <td>{formatOrderMoney(line.vatPence, priceVisible)}</td>
+                    <td>{formatOrderMoney(line.priceIncVatPence, priceVisible)}</td>
+                    <td className="font-bold">{formatOrderMoney(line.lineTotalPence, priceVisible)}</td>
+                    <td>{line.lockedFromCustomer ? <Badge tone="warning">Locked</Badge> : <Badge>Editable</Badge>}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {!order.lines.length ? (
+              <div className="p-6 text-sm text-freshpac-grey">No order lines recorded.</div>
+            ) : null}
           </div>
         </ModuleSection>
 
         <ModuleSection id="addresses" title="Addresses" description="Invoice and delivery address for order sheet generation.">
           <div className="grid gap-4 lg:grid-cols-2">
-            <AddressCard title="Invoice address" lines={order.invoiceAddress} />
-            <AddressCard title="Delivery address" lines={order.deliveryAddress} />
+            <AddressCard title="Invoice address" lines={invoiceAddress} />
+            <AddressCard title="Delivery address" lines={deliveryAddress} />
           </div>
         </ModuleSection>
 
@@ -244,7 +268,7 @@ export default async function OrderDetailPage({
             </Button>
           </div>
 
-          {order.status === "Awaiting Payment" ? (
+          {order.status === "AWAITING_PAYMENT" ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <div className="flex items-center gap-2 font-black">
                 <Banknote className="size-4" />
@@ -257,9 +281,9 @@ export default async function OrderDetailPage({
           ) : null}
         </ModuleSection>
 
-        <ModuleSection id="audit" title="Audit history" description="Important order actions and processing events.">
+        <ModuleSection id="audit" title="Audit history" description="Preview audit timeline from order timestamps.">
           <div className="space-y-3">
-            {order.audit.map((event) => (
+            {auditEvents.map((event) => (
               <div key={`${event.date}-${event.action}`} className="rounded-2xl border border-freshpac-panel bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-black text-freshpac-charcoal">{event.action}</p>

@@ -2,22 +2,37 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { Banknote, ClipboardList, Filter, Plus, Printer, Search, Truck, WifiOff } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
-import { StatusBadge } from "@/components/sales/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { getOrderStats, orderSourceTone, orderStatusTone, salesOrders } from "@/lib/sales/orders";
+import {
+  formatDateTime,
+  formatDeliveryMethod,
+  formatOrderMoney,
+  formatOrderSource,
+  formatOrderStatus,
+  getOrderAttentionListFromDb,
+  getOrderListFromDb,
+  getOrderReference,
+  getOrderSourceTone,
+  getOrderStatsFromDb,
+  getOrderStatusTone
+} from "@/lib/sales/order-db";
 
 const filters = ["All", "Submitted", "Awaiting Payment", "Paid Submitted", "Processed", "Courier", "Route", "Offline"];
 
-export default function OrdersPage() {
-  const stats = getOrderStats();
+export default async function OrdersPage() {
+  const [orders, attentionOrders, stats] = await Promise.all([
+    getOrderListFromDb(),
+    getOrderAttentionListFromDb(),
+    getOrderStatsFromDb()
+  ]);
 
   return (
     <PortalShell
       title="Sales orders"
-      subtitle="View, filter, print and process customer orders."
+      subtitle="Live order records from Supabase/PostgreSQL via Prisma."
       activeHref="/portal/sales/orders"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
@@ -69,7 +84,7 @@ export default function OrdersPage() {
         <Card>
           <CardHeader>
             <CardTitle>Order counters</CardTitle>
-            <CardDescription>Operational order queues.</CardDescription>
+            <CardDescription>Live operational order queues.</CardDescription>
           </CardHeader>
 
           <CardContent className="grid grid-cols-2 gap-3">
@@ -90,10 +105,10 @@ export default function OrdersPage() {
               <div>
                 <CardTitle>Order list</CardTitle>
                 <CardDescription>
-                  The processing table keeps the useful density of the old invoice screen while making order state clearer.
+                  These records now come from Supabase/PostgreSQL through Prisma.
                 </CardDescription>
               </div>
-              <Badge tone="info">Mock data</Badge>
+              <Badge tone="success">Live database</Badge>
             </div>
           </CardHeader>
 
@@ -110,49 +125,64 @@ export default function OrdersPage() {
                     <th>Delivery</th>
                     <th>Method</th>
                     <th>Total</th>
-                    <th>Print</th>
+                    <th>Lines</th>
                     <th>Payment</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {salesOrders.map((order) => (
-                    <tr key={order.reference}>
-                      <td>
-                        <Link
-                          href={`/portal/sales/orders/${order.reference}`}
-                          className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
-                        >
-                          {order.reference}
-                        </Link>
-                      </td>
-                      <td>
-                        <div className="font-bold text-freshpac-charcoal">{order.siteName}</div>
-                        <div className="text-xs text-freshpac-grey">{order.accountNumber}</div>
-                      </td>
-                      <td>
-                        <StatusBadge status={order.status} tone={orderStatusTone[order.status]} />
-                      </td>
-                      <td>
-                        <Badge tone={orderSourceTone[order.source]}>{order.source}</Badge>
-                      </td>
-                      <td>{order.orderDate}</td>
-                      <td>
-                        <div className="font-semibold">{order.requiredDeliveryDay}</div>
-                        <div className="text-xs text-freshpac-grey">{order.driverOrCourier}</div>
-                      </td>
-                      <td>{order.deliveryMethod}</td>
-                      <td className="font-bold">{order.totalIncVat}</td>
-                      <td>
-                        <Badge tone={order.printStatus === "Printed" ? "success" : "warning"}>{order.printStatus}</Badge>
-                      </td>
-                      <td>
-                        <Badge tone={order.paymentStatus === "Awaiting payment" ? "warning" : "neutral"}>{order.paymentStatus}</Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {orders.map((order) => {
+                    const reference = getOrderReference(order);
+                    const priceVisible = order.priceVisibilityAtOrder;
+
+                    return (
+                      <tr key={order.id}>
+                        <td>
+                          <Link
+                            href={`/portal/sales/orders/${reference}`}
+                            className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                          >
+                            {reference}
+                          </Link>
+                        </td>
+                        <td>
+                          <div className="font-bold text-freshpac-charcoal">{order.customer.siteName}</div>
+                          <div className="text-xs text-freshpac-grey">{order.customer.accountNumber}</div>
+                        </td>
+                        <td>
+                          <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
+                        </td>
+                        <td>
+                          <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                        </td>
+                        <td>{formatDateTime(order.createdAt)}</td>
+                        <td>
+                          <div className="font-semibold">{order.deliveryDay || order.customer.deliveryDay || "Not set"}</div>
+                          <div className="text-xs text-freshpac-grey">
+                            {order.driverOrCourier || order.customer.driverOrCourier || "No driver"}
+                          </div>
+                        </td>
+                        <td>{formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)}</td>
+                        <td className="font-bold">{formatOrderMoney(order.totalIncVatPence, priceVisible)}</td>
+                        <td>{order.lines.length}</td>
+                        <td>
+                          {order.status === "AWAITING_PAYMENT" ? (
+                            <Badge tone="warning">Awaiting payment</Badge>
+                          ) : (
+                            <Badge>Not required</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
+
+              {!orders.length ? (
+                <div className="p-6 text-sm text-freshpac-grey">
+                  No orders found. Run <span className="font-bold">npm run prisma:seed</span> or create an order.
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -185,35 +215,38 @@ export default function OrdersPage() {
             </CardHeader>
 
             <CardContent className="space-y-3">
-              {salesOrders
-                .filter(
-                  (order) =>
-                    order.status === "Awaiting Payment" ||
-                    order.source === "Offline pending" ||
-                    order.minimumOrderCheck === "Below minimum" ||
-                    order.priceVisibility === "Off"
-                )
-                .map((order) => (
+              {attentionOrders.map((order) => {
+                const reference = getOrderReference(order);
+
+                return (
                   <Link
-                    key={order.reference}
-                    href={`/portal/sales/orders/${order.reference}`}
+                    key={order.id}
+                    href={`/portal/sales/orders/${reference}`}
                     className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-black text-freshpac-charcoal">{order.reference}</p>
-                        <p className="text-xs text-freshpac-grey">{order.siteName}</p>
+                        <p className="text-sm font-black text-freshpac-charcoal">{reference}</p>
+                        <p className="text-xs text-freshpac-grey">{order.customer.siteName}</p>
                       </div>
-                      <StatusBadge status={order.status} tone={orderStatusTone[order.status]} />
+                      <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {order.priceVisibility === "Off" ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
-                      {order.minimumOrderCheck === "Below minimum" ? <Badge tone="warning">Below minimum</Badge> : null}
-                      {order.source === "Offline pending" ? <Badge tone="danger">Pending sync</Badge> : null}
+                      {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
+                      {order.minimumOrderPassed === false ? <Badge tone="warning">Below minimum</Badge> : null}
+                      {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
+                      {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
                     </div>
                   </Link>
-                ))}
+                );
+              })}
+
+              {!attentionOrders.length ? (
+                <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                  No orders currently need attention.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         </div>
