@@ -36,7 +36,7 @@ export default async function OrdersPage() {
       activeHref="/portal/sales/orders"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -81,7 +81,7 @@ export default async function OrdersPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <CardTitle>Order counters</CardTitle>
             <CardDescription>Live operational order queues.</CardDescription>
@@ -99,7 +99,7 @@ export default async function OrdersPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -113,82 +113,133 @@ export default async function OrdersPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Reference</th>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th>Source</th>
-                    <th>Date</th>
-                    <th>Delivery</th>
-                    <th>Method</th>
-                    <th>Total</th>
-                    <th>Lines</th>
-                    <th>Payment</th>
-                  </tr>
-                </thead>
+            <div className="block p-3 md:hidden">
+              <div className="grid gap-3">
+                {orders.map((order) => {
+                  const reference = getOrderReference(order);
+                  const priceVisible = order.priceVisibilityAtOrder;
 
-                <tbody>
-                  {orders.map((order) => {
-                    const reference = getOrderReference(order);
-                    const priceVisible = order.priceVisibilityAtOrder;
+                  return (
+                    <Link
+                      key={order.id}
+                      href={`/portal/sales/orders/${reference}`}
+                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm transition hover:border-freshpac-orange hover:bg-orange-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{reference}</p>
+                          <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">{order.customer.siteName}</p>
+                          <p className="text-xs text-freshpac-grey">{order.customer.accountNumber}</p>
+                        </div>
 
-                    return (
-                      <tr key={order.id}>
-                        <td>
-                          <Link
-                            href={`/portal/sales/orders/${reference}`}
-                            className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
-                          >
-                            {reference}
-                          </Link>
-                        </td>
-                        <td>
-                          <div className="font-bold text-freshpac-charcoal">{order.customer.siteName}</div>
-                          <div className="text-xs text-freshpac-grey">{order.customer.accountNumber}</div>
-                        </td>
-                        <td>
-                          <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
-                        </td>
-                        <td>
-                          <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
-                        </td>
-                        <td>{formatDateTime(order.createdAt)}</td>
-                        <td>
-                          <div className="font-semibold">{order.deliveryDay || order.customer.deliveryDay || "Not set"}</div>
-                          <div className="text-xs text-freshpac-grey">
-                            {order.driverOrCourier || order.customer.driverOrCourier || "No driver"}
-                          </div>
-                        </td>
-                        <td>{formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)}</td>
-                        <td className="font-bold">{formatOrderMoney(order.totalIncVatPence, priceVisible)}</td>
-                        <td>{order.lines.length}</td>
-                        <td>
-                          {order.status === "AWAITING_PAYMENT" ? (
-                            <Badge tone="warning">Awaiting payment</Badge>
-                          ) : (
-                            <Badge>Not required</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
+                      </div>
 
-              {!orders.length ? (
-                <div className="p-6 text-sm text-freshpac-grey">
-                  No orders found. Run <span className="font-bold">npm run prisma:seed</span> or create an order.
-                </div>
-              ) : null}
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                        {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
+                        {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
+                        {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <MobileDetail label="Date" value={formatDateTime(order.createdAt)} />
+                        <MobileDetail label="Delivery" value={order.deliveryDay || order.customer.deliveryDay || "Not set"} />
+                        <MobileDetail label="Driver" value={order.driverOrCourier || order.customer.driverOrCourier || "No driver"} />
+                        <MobileDetail label="Method" value={formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)} />
+                        <MobileDetail label="Total" value={formatOrderMoney(order.totalIncVatPence, priceVisible)} />
+                        <MobileDetail label="Lines" value={String(order.lines.length)} />
+                      </div>
+                    </Link>
+                  );
+                })}
+
+                {!orders.length ? (
+                  <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                    No orders found. Run <span className="font-bold">npm run prisma:seed</span> or create an order.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="hidden md:block">
+              <div className="portal-scroll-panel">
+                <table className="fp-compact-table min-w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Customer</th>
+                      <th>Status</th>
+                      <th>Source</th>
+                      <th>Date</th>
+                      <th>Delivery</th>
+                      <th>Method</th>
+                      <th>Total</th>
+                      <th>Lines</th>
+                      <th>Payment</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {orders.map((order) => {
+                      const reference = getOrderReference(order);
+                      const priceVisible = order.priceVisibilityAtOrder;
+
+                      return (
+                        <tr key={order.id}>
+                          <td>
+                            <Link
+                              href={`/portal/sales/orders/${reference}`}
+                              className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                            >
+                              {reference}
+                            </Link>
+                          </td>
+                          <td>
+                            <div className="font-bold text-freshpac-charcoal">{order.customer.siteName}</div>
+                            <div className="text-xs text-freshpac-grey">{order.customer.accountNumber}</div>
+                          </td>
+                          <td>
+                            <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
+                          </td>
+                          <td>
+                            <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                          </td>
+                          <td>{formatDateTime(order.createdAt)}</td>
+                          <td>
+                            <div className="font-semibold">{order.deliveryDay || order.customer.deliveryDay || "Not set"}</div>
+                            <div className="text-xs text-freshpac-grey">
+                              {order.driverOrCourier || order.customer.driverOrCourier || "No driver"}
+                            </div>
+                          </td>
+                          <td>{formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)}</td>
+                          <td className="font-bold">{formatOrderMoney(order.totalIncVatPence, priceVisible)}</td>
+                          <td>{order.lines.length}</td>
+                          <td>
+                            {order.status === "AWAITING_PAYMENT" ? (
+                              <Badge tone="warning">Awaiting payment</Badge>
+                            ) : (
+                              <Badge>Not required</Badge>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                {!orders.length ? (
+                  <div className="p-6 text-sm text-freshpac-grey">
+                    No orders found. Run <span className="font-bold">npm run prisma:seed</span> or create an order.
+                  </div>
+                ) : null}
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="grid content-start gap-4">
-          <Card>
+          <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Processing actions</CardTitle>
               <CardDescription>Print and process workflow placeholders.</CardDescription>
@@ -208,7 +259,7 @@ export default async function OrdersPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Needs attention</CardTitle>
               <CardDescription>Orders that should not silently process.</CardDescription>
@@ -225,9 +276,9 @@ export default async function OrdersPage() {
                     className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-black text-freshpac-charcoal">{reference}</p>
-                        <p className="text-xs text-freshpac-grey">{order.customer.siteName}</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-freshpac-charcoal">{reference}</p>
+                        <p className="truncate text-xs text-freshpac-grey">{order.customer.siteName}</p>
                       </div>
                       <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                     </div>
@@ -281,6 +332,15 @@ function MiniStat({
         {icon}
       </div>
       <p className="mt-2 text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function MobileDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">{value}</p>
     </div>
   );
 }
