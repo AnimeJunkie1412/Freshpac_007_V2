@@ -6,21 +6,35 @@ import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { engineerJobs, engineerPriorityTone, engineerStatusTone, getEngineerJobStats } from "@/lib/engineers/jobs";
+import {
+  formatChargeableStatus,
+  formatDate,
+  formatEngineerJobStatus,
+  formatEngineerJobTypes,
+  formatEngineerPriority,
+  formatSignatureStatus,
+  formatSyncStatus,
+  getEngineerJobListFromDb,
+  getEngineerJobReference,
+  getEngineerJobStatsFromDb,
+  getEngineerJobStatusTone,
+  getEngineerPriorityTone,
+  getSyncStatusTone
+} from "@/lib/engineers/job-db";
 
 const filters = ["All", "New", "Assigned", "In Progress", "Follow-up", "Completed", "Chargeable", "Pending sync"];
 
-export default function EngineerJobsPage() {
-  const stats = getEngineerJobStats();
+export default async function EngineerJobsPage() {
+  const [jobs, stats] = await Promise.all([getEngineerJobListFromDb(), getEngineerJobStatsFromDb()]);
 
   return (
     <PortalShell
       title="Engineer jobs"
-      subtitle="Breakdowns, services, water filter changes, follow-ups, chargeable reviews and completed reports."
+      subtitle="Live breakdowns, services, water filter changes, follow-ups and completed reports."
       activeHref="/portal/engineers/jobs"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -60,10 +74,10 @@ export default function EngineerJobsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <CardTitle>Job counters</CardTitle>
-            <CardDescription>Engineer workload snapshot.</CardDescription>
+            <CardDescription>Live engineer workload snapshot.</CardDescription>
           </CardHeader>
 
           <CardContent className="grid grid-cols-2 gap-3">
@@ -77,78 +91,145 @@ export default function EngineerJobsPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="portal-card-safe">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle>Job list</CardTitle>
               <CardDescription>
-                Built for a semi-compact engineering workflow with clear status, machine and customer visibility.
+                These records now come from Supabase/PostgreSQL through Prisma.
               </CardDescription>
             </div>
-            <Badge tone="info">Mock data</Badge>
+            <Badge tone="success">Live database</Badge>
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="fp-compact-table min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th>Job</th>
-                  <th>Customer</th>
-                  <th>Status</th>
-                  <th>Priority</th>
-                  <th>Types</th>
-                  <th>Engineer</th>
-                  <th>Scheduled</th>
-                  <th>Fault</th>
-                  <th>Chargeable</th>
-                  <th>Parts</th>
-                  <th>Signature</th>
-                  <th>Sync</th>
-                </tr>
-              </thead>
+          <div className="block p-3 md:hidden">
+            <div className="grid gap-3">
+              {jobs.map((job) => {
+                const reference = getEngineerJobReference(job);
 
-              <tbody>
-                {engineerJobs.map((job) => (
-                  <tr key={job.jobRef}>
-                    <td>
-                      <Link
-                        href={`/portal/engineers/jobs/${job.jobRef}`}
-                        className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
-                      >
-                        {job.jobRef}
-                      </Link>
-                    </td>
-                    <td>
-                      <div className="font-bold text-freshpac-charcoal">{job.siteName}</div>
-                      <div className="text-xs text-freshpac-grey">{job.accountNumber}</div>
-                    </td>
-                    <td>
-                      <Badge tone={engineerStatusTone[job.status]}>{job.status}</Badge>
-                    </td>
-                    <td>
-                      <Badge tone={engineerPriorityTone[job.priority]}>{job.priority}</Badge>
-                    </td>
-                    <td>{job.jobTypes.join(", ")}</td>
-                    <td>{job.assignedEngineer}</td>
-                    <td>{job.scheduledDate || "Not scheduled"}</td>
-                    <td>
-                      <div className="max-w-xs truncate">{job.reportedFault}</div>
-                    </td>
-                    <td>{job.chargeable}</td>
-                    <td>{job.partsRequests.length}</td>
-                    <td>{job.customerSignatureStatus}</td>
-                    <td>
-                      <Badge tone={job.offlineStatus === "Pending sync" ? "danger" : job.offlineStatus === "Saved offline" ? "warning" : "neutral"}>
-                        {job.offlineStatus}
+                return (
+                  <Link
+                    key={job.id}
+                    href={`/portal/engineers/jobs/${reference}`}
+                    className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm transition hover:border-freshpac-orange hover:bg-orange-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{reference}</p>
+                        <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">{job.customer.siteName}</p>
+                        <p className="truncate text-xs text-freshpac-grey">{job.customer.accountNumber}</p>
+                      </div>
+
+                      <Badge tone={getEngineerJobStatusTone(job.status)}>
+                        {formatEngineerJobStatus(job.status)}
                       </Badge>
-                    </td>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      <Badge tone={getEngineerPriorityTone(job.priority)}>{formatEngineerPriority(job.priority)}</Badge>
+                      <Badge>{formatEngineerJobTypes(job.jobTypes)}</Badge>
+                      <Badge tone={getSyncStatusTone(job.offlineStatus)}>{formatSyncStatus(job.offlineStatus)}</Badge>
+                      {job.status === "FOLLOW_UP_REQUIRED" ? <Badge tone="danger">Follow-up</Badge> : null}
+                      {job.chargeable === "TO_REVIEW" ? <Badge tone="warning">Charge review</Badge> : null}
+                    </div>
+
+                    {job.reportedFault ? (
+                      <p className="mt-3 rounded-xl bg-freshpac-cream/70 p-3 text-xs font-semibold text-freshpac-charcoal">
+                        {job.reportedFault}
+                      </p>
+                    ) : null}
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MobileDetail label="Engineer" value={job.assignedEngineer?.fullName || "Unassigned"} />
+                      <MobileDetail label="Scheduled" value={formatDate(job.scheduledAt)} />
+                      <MobileDetail label="Chargeable" value={formatChargeableStatus(job.chargeable)} />
+                      <MobileDetail label="Parts" value={String(job.partsRequests.length)} />
+                      <MobileDetail label="Signature" value={formatSignatureStatus(job.customerSignatureStatus)} />
+                      <MobileDetail label="Machines" value={String(job.machineSheets.length)} />
+                    </div>
+                  </Link>
+                );
+              })}
+
+              {!jobs.length ? (
+                <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                  No engineer jobs found. Run <span className="font-bold">npm run prisma:seed</span> or create a job.
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="hidden md:block">
+            <div className="portal-scroll-panel">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Job</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Types</th>
+                    <th>Engineer</th>
+                    <th>Scheduled</th>
+                    <th>Fault</th>
+                    <th>Chargeable</th>
+                    <th>Parts</th>
+                    <th>Signature</th>
+                    <th>Sync</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {jobs.map((job) => {
+                    const reference = getEngineerJobReference(job);
+
+                    return (
+                      <tr key={job.id}>
+                        <td>
+                          <Link
+                            href={`/portal/engineers/jobs/${reference}`}
+                            className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                          >
+                            {reference}
+                          </Link>
+                        </td>
+                        <td>
+                          <div className="font-bold text-freshpac-charcoal">{job.customer.siteName}</div>
+                          <div className="text-xs text-freshpac-grey">{job.customer.accountNumber}</div>
+                        </td>
+                        <td>
+                          <Badge tone={getEngineerJobStatusTone(job.status)}>{formatEngineerJobStatus(job.status)}</Badge>
+                        </td>
+                        <td>
+                          <Badge tone={getEngineerPriorityTone(job.priority)}>{formatEngineerPriority(job.priority)}</Badge>
+                        </td>
+                        <td>{formatEngineerJobTypes(job.jobTypes)}</td>
+                        <td>{job.assignedEngineer?.fullName || "Unassigned"}</td>
+                        <td>{formatDate(job.scheduledAt)}</td>
+                        <td>
+                          <div className="max-w-xs truncate">{job.reportedFault || "No fault recorded."}</div>
+                        </td>
+                        <td>{formatChargeableStatus(job.chargeable)}</td>
+                        <td>{job.partsRequests.length}</td>
+                        <td>{formatSignatureStatus(job.customerSignatureStatus)}</td>
+                        <td>
+                          <Badge tone={getSyncStatusTone(job.offlineStatus)}>{formatSyncStatus(job.offlineStatus)}</Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {!jobs.length ? (
+                <div className="p-6 text-sm text-freshpac-grey">
+                  No engineer jobs found. Run <span className="font-bold">npm run prisma:seed</span> or create a job.
+                </div>
+              ) : null}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -182,6 +263,15 @@ function MiniStat({
         {icon}
       </div>
       <p className="mt-2 text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function MobileDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">{value}</p>
     </div>
   );
 }
