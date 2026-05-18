@@ -41,7 +41,7 @@ export default async function CustomersPage() {
       activeHref="/portal/sales/customers"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_340px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -86,7 +86,7 @@ export default async function CustomersPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <CardTitle>Customer counters</CardTitle>
             <CardDescription>Live values from the database.</CardDescription>
@@ -104,7 +104,7 @@ export default async function CustomersPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -118,85 +118,147 @@ export default async function CustomersPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Account</th>
-                    <th>Site</th>
-                    <th>Status</th>
-                    <th>Delivery</th>
-                    <th>Contact</th>
-                    <th>Rep</th>
-                    <th>Last order</th>
-                    <th>Flags</th>
-                  </tr>
-                </thead>
+            <div className="block p-3 md:hidden">
+              <div className="grid gap-3">
+                {customers.map((customer) => {
+                  const primaryContact = customer.contacts[0];
+                  const latestOrder = customer.orders[0];
+                  const flags = buildCustomerFlags(customer);
 
-                <tbody>
-                  {customers.map((customer) => {
-                    const primaryContact = customer.contacts[0];
-                    const latestOrder = customer.orders[0];
-                    const flags = buildCustomerFlags(customer);
-
-                    return (
-                      <tr key={customer.id}>
-                        <td>
-                          <Link
-                            className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
-                            href={`/portal/sales/customers/${customer.accountNumber}`}
-                          >
+                  return (
+                    <Link
+                      key={customer.id}
+                      href={`/portal/sales/customers/${customer.accountNumber}`}
+                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm transition hover:border-freshpac-orange hover:bg-orange-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
                             {customer.accountNumber}
-                          </Link>
-                        </td>
-                        <td>
-                          <div className="font-bold text-freshpac-charcoal">{customer.siteName}</div>
-                          <div className="text-xs text-freshpac-grey">{customer.legalName || "No legal name recorded"}</div>
-                        </td>
-                        <td>
-                          <StatusBadge
-                            status={formatCustomerStatus(customer.status)}
-                            tone={getCustomerStatusTone(customer.status)}
-                          />
-                        </td>
-                        <td>
-                          <div className="font-semibold">{customer.deliveryDay || "Not set"}</div>
-                          <div className="text-xs text-freshpac-grey">
-                            {customer.driverOrCourier || formatDeliveryMethod(customer.deliveryMethod)}
-                          </div>
-                        </td>
-                        <td>
-                          <div className="font-semibold">{primaryContact?.name || "No contact"}</div>
-                          <div className="text-xs text-freshpac-grey">{primaryContact?.phone || customer.contactDay || "No phone"}</div>
-                        </td>
-                        <td>{customer.assignedSalesRep || "Unassigned"}</td>
-                        <td>{latestOrder ? formatDate(latestOrder.createdAt) : "No orders"}</td>
-                        <td>
-                          <div className="flex min-w-48 flex-wrap gap-1">
-                            {flags.slice(0, 3).map((flag) => (
-                              <Badge key={flag.label} tone={flag.tone}>
-                                {flag.label}
-                              </Badge>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </p>
+                          <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">
+                            {customer.siteName}
+                          </p>
+                          <p className="truncate text-xs text-freshpac-grey">
+                            {customer.legalName || "No legal name recorded"}
+                          </p>
+                        </div>
 
-              {!customers.length ? (
-                <div className="p-6 text-sm text-freshpac-grey">
-                  No customers found. Run <span className="font-bold">npm run prisma:seed</span> or create a customer.
-                </div>
-              ) : null}
+                        <StatusBadge
+                          status={formatCustomerStatus(customer.status)}
+                          tone={getCustomerStatusTone(customer.status)}
+                        />
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                        <MobileDetail label="Delivery" value={customer.deliveryDay || "Not set"} />
+                        <MobileDetail label="Driver" value={customer.driverOrCourier || formatDeliveryMethod(customer.deliveryMethod)} />
+                        <MobileDetail label="Contact" value={primaryContact?.name || "No contact"} />
+                        <MobileDetail label="Phone" value={primaryContact?.phone || "No phone"} />
+                        <MobileDetail label="Rep" value={customer.assignedSalesRep || "Unassigned"} />
+                        <MobileDetail label="Last order" value={latestOrder ? formatDate(latestOrder.createdAt) : "No orders"} />
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {flags.slice(0, 4).map((flag) => (
+                          <Badge key={flag.label} tone={flag.tone}>
+                            {flag.label}
+                          </Badge>
+                        ))}
+                      </div>
+                    </Link>
+                  );
+                })}
+
+                {!customers.length ? (
+                  <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                    No customers found. Run <span className="font-bold">npm run prisma:seed</span> or create a customer.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="hidden md:block">
+              <div className="portal-scroll-panel">
+                <table className="fp-compact-table min-w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th>Account</th>
+                      <th>Site</th>
+                      <th>Status</th>
+                      <th>Delivery</th>
+                      <th>Contact</th>
+                      <th>Rep</th>
+                      <th>Last order</th>
+                      <th>Flags</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {customers.map((customer) => {
+                      const primaryContact = customer.contacts[0];
+                      const latestOrder = customer.orders[0];
+                      const flags = buildCustomerFlags(customer);
+
+                      return (
+                        <tr key={customer.id}>
+                          <td>
+                            <Link
+                              className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                              href={`/portal/sales/customers/${customer.accountNumber}`}
+                            >
+                              {customer.accountNumber}
+                            </Link>
+                          </td>
+                          <td>
+                            <div className="font-bold text-freshpac-charcoal">{customer.siteName}</div>
+                            <div className="text-xs text-freshpac-grey">{customer.legalName || "No legal name recorded"}</div>
+                          </td>
+                          <td>
+                            <StatusBadge
+                              status={formatCustomerStatus(customer.status)}
+                              tone={getCustomerStatusTone(customer.status)}
+                            />
+                          </td>
+                          <td>
+                            <div className="font-semibold">{customer.deliveryDay || "Not set"}</div>
+                            <div className="text-xs text-freshpac-grey">
+                              {customer.driverOrCourier || formatDeliveryMethod(customer.deliveryMethod)}
+                            </div>
+                          </td>
+                          <td>
+                            <div className="font-semibold">{primaryContact?.name || "No contact"}</div>
+                            <div className="text-xs text-freshpac-grey">{primaryContact?.phone || customer.contactDay || "No phone"}</div>
+                          </td>
+                          <td>{customer.assignedSalesRep || "Unassigned"}</td>
+                          <td>{latestOrder ? formatDate(latestOrder.createdAt) : "No orders"}</td>
+                          <td>
+                            <div className="flex min-w-48 flex-wrap gap-1">
+                              {flags.slice(0, 3).map((flag) => (
+                                <Badge key={flag.label} tone={flag.tone}>
+                                  {flag.label}
+                                </Badge>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+
+                {!customers.length ? (
+                  <div className="p-6 text-sm text-freshpac-grey">
+                    No customers found. Run <span className="font-bold">npm run prisma:seed</span> or create a customer.
+                  </div>
+                ) : null}
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="grid content-start gap-4">
-          <Card>
+          <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Priority accounts</CardTitle>
               <CardDescription>Accounts needing attention before processing or rollover.</CardDescription>
@@ -215,8 +277,8 @@ export default async function CustomersPage() {
                       className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black text-freshpac-charcoal">{customer.siteName}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-freshpac-charcoal">{customer.siteName}</p>
                           <p className="text-xs text-freshpac-grey">
                             {customer.accountNumber} · {customer.deliveryDay || "No delivery day"}
                           </p>
@@ -246,7 +308,7 @@ export default async function CustomersPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Database status</CardTitle>
               <CardDescription>The customer module is now reading real records.</CardDescription>
@@ -296,6 +358,15 @@ function MiniStat({
         {icon}
       </div>
       <p className="mt-2 text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function MobileDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">{value}</p>
     </div>
   );
 }
