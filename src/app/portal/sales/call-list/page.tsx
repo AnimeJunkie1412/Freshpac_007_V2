@@ -1,60 +1,56 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Filter, Phone, Search, ShoppingBasket, UserRoundCheck } from "lucide-react";
-import {
-  markCallListCalled,
-  markCallListNeedsContact,
-  markCallListNothingNeeded,
-  updateCallListNotes
-} from "@/app/portal/sales/call-list/actions";
+import { Archive, Coffee, Filter, PackageCheck, Plus, Search, ShoppingBag, Tags } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  formatBasketStatus,
-  formatCallListStatus,
-  formatCustomerStatus,
-  getBasketStatusTone,
-  getCallListAttentionFromDb,
-  getCallListEntriesFromDb,
-  getCallListStatsFromDb,
-  getCallListStatusTone,
-  getCustomerStatusTone,
-  getBasketValueText,
-  getLatestOrderText
-} from "@/lib/sales/call-list-db";
+  calculatePriceIncVatPence,
+  formatMoneyFromPence,
+  formatProductStatus,
+  formatProductType,
+  formatPublicVisibility,
+  getProductListFromDb,
+  getProductStatsFromDb,
+  getProductStatusTone,
+  getProductTypeTone
+} from "@/lib/sales/product-db";
 
-const filters = ["All", "To call", "Called", "Nothing Needed", "Order placed", "Needs contact", "Tuesday", "Courier"];
+const filters = ["All", "Normal", "Coffee", "Retail", "Active", "Inactive", "T0", "T1"];
 
-export default async function CallListPage() {
-  const [entries, attentionEntries, stats] = await Promise.all([
-    getCallListEntriesFromDb(),
-    getCallListAttentionFromDb(),
-    getCallListStatsFromDb()
-  ]);
+export default async function ProductsPage() {
+  const [products, stats] = await Promise.all([getProductListFromDb(), getProductStatsFromDb()]);
 
   return (
     <PortalShell
-      title="Sales call list"
-      subtitle="Live weekly telesales list from Supabase/PostgreSQL via Prisma."
-      activeHref="/portal/sales/call-list"
+      title="Products and pricing"
+      subtitle="Live product records from Supabase/PostgreSQL via Prisma."
+      activeHref="/portal/sales/products"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
         <Card className="portal-card-safe">
           <CardHeader>
-            <CardTitle>Call list search</CardTitle>
-            <CardDescription>
-              Filter customers by delivery day, contact day, driver, courier, frequency, account status and sales rep.
-            </CardDescription>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle>Product search</CardTitle>
+                <CardDescription>
+                  Search by product code, description, category, group, VAT code or restricted product type.
+                </CardDescription>
+              </div>
+              <LinkButton href="/portal/sales/products/new" size="sm">
+                <Plus className="mr-2 size-4" />
+                Create product
+              </LinkButton>
+            </div>
           </CardHeader>
 
           <CardContent>
             <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
-                <Input className="pl-9" placeholder="Search customer, account, contact, phone, driver..." />
+                <Input className="pl-9" placeholder="Search product code, name, category, group..." />
               </label>
 
               <Button variant="secondary" type="button">
@@ -75,27 +71,27 @@ export default async function CallListPage() {
 
         <Card className="portal-card-safe">
           <CardHeader>
-            <CardTitle>Call counters</CardTitle>
-            <CardDescription>Live weekly contact progress.</CardDescription>
+            <CardTitle>Product counters</CardTitle>
+            <CardDescription>Live values from the database.</CardDescription>
           </CardHeader>
 
           <CardContent className="grid grid-cols-2 gap-3">
-            <MiniStat label="Total" value={stats.total} icon={<ClipboardList className="size-4" />} />
-            <MiniStat label="To call" value={stats.toCall} tone="info" icon={<Phone className="size-4" />} />
-            <MiniStat label="Orders" value={stats.orderPlaced} tone="success" icon={<ShoppingBasket className="size-4" />} />
-            <MiniStat label="Nothing" value={stats.nothingNeeded} icon={<CheckCircle2 className="size-4" />} />
-            <MiniStat label="Contact" value={stats.needsContact} tone="warning" icon={<UserRoundCheck className="size-4" />} />
-            <MiniStat label="Called" value={stats.called} tone="info" icon={<Phone className="size-4" />} />
+            <MiniStat label="Total" value={stats.total} icon={<Tags className="size-4" />} />
+            <MiniStat label="Active" value={stats.active} tone="success" icon={<PackageCheck className="size-4" />} />
+            <MiniStat label="Inactive" value={stats.inactive} tone="warning" icon={<Archive className="size-4" />} />
+            <MiniStat label="Normal" value={stats.normal} icon={<ShoppingBag className="size-4" />} />
+            <MiniStat label="Coffee" value={stats.coffee} tone="info" icon={<Coffee className="size-4" />} />
+            <MiniStat label="Retail" value={stats.retail} tone="warning" icon={<ShoppingBag className="size-4" />} />
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
+      <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
         <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <CardTitle>Weekly call list</CardTitle>
+                <CardTitle>Product list</CardTitle>
                 <CardDescription>
                   These records now come from Supabase/PostgreSQL through Prisma.
                 </CardDescription>
@@ -107,99 +103,49 @@ export default async function CallListPage() {
           <CardContent className="p-0">
             <div className="block p-3 md:hidden">
               <div className="grid gap-3">
-                {entries.map((entry) => {
-                  const primaryContact = entry.customer.contacts[0];
+                {products.map((product) => {
+                  const visibility = formatPublicVisibility(product);
+                  const incVat = calculatePriceIncVatPence(product.priceExVatPence, product.vatRateBasisPoints);
 
                   return (
-                    <div
-                      key={entry.id}
-                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm"
+                    <Link
+                      key={product.id}
+                      href={`/portal/sales/products/${product.code}`}
+                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm transition hover:border-freshpac-orange hover:bg-orange-50"
                     >
-                      <Link href={`/portal/sales/customers/${entry.customer.accountNumber}`} className="block">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
-                              {entry.customer.accountNumber}
-                            </p>
-                            <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">
-                              {entry.customer.siteName}
-                            </p>
-                            <p className="truncate text-xs text-freshpac-grey">
-                              {primaryContact?.name || "No contact"} · {primaryContact?.phone || "No phone"}
-                            </p>
-                          </div>
-
-                          <Badge tone={getCallListStatusTone(entry.status)}>
-                            {formatCallListStatus(entry.status)}
-                          </Badge>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{product.code}</p>
+                          <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">{product.name}</p>
+                          <p className="truncate text-xs text-freshpac-grey">{product.description || "No description recorded"}</p>
                         </div>
 
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          <Badge tone={getBasketStatusTone(entry.basketStatus)}>
-                            {formatBasketStatus(entry.basketStatus)}
-                          </Badge>
-                          <Badge tone={getCustomerStatusTone(entry.customer.status)}>
-                            {formatCustomerStatus(entry.customer.status)}
-                          </Badge>
-                          {!entry.customer.priceVisibility ? <Badge tone="warning">Prices hidden</Badge> : null}
-                        </div>
+                        <Badge tone={getProductStatusTone(product.status)}>
+                          {formatProductStatus(product.status)}
+                        </Badge>
+                      </div>
 
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <MobileDetail label="Delivery" value={entry.deliveryDay || entry.customer.deliveryDay || "Not set"} />
-                          <MobileDetail label="Driver" value={entry.driverOrCourier || entry.customer.driverOrCourier || "No driver"} />
-                          <MobileDetail label="Contact day" value={entry.contactDay || entry.customer.contactDay || "Not set"} />
-                          <MobileDetail label="Frequency" value={`Every ${entry.customer.contactFrequencyWeeks} week(s)`} />
-                          <MobileDetail label="Rep" value={entry.assignedSalesRep || entry.customer.assignedSalesRep || "Unassigned"} />
-                          <MobileDetail label="Basket" value={getBasketValueText(entry)} />
-                          <MobileDetail label="Last order" value={getLatestOrderText(entry.customer.orders)} />
-                          <MobileDetail label="Status" value={formatCallListStatus(entry.status)} />
-                        </div>
-
-                        {entry.notes ? (
-                          <p className="mt-3 rounded-xl bg-freshpac-cream/70 p-3 text-xs font-semibold text-freshpac-charcoal">
-                            {entry.notes}
-                          </p>
-                        ) : null}
-                      </Link>
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        <Badge tone={getProductTypeTone(product.productType)}>{formatProductType(product.productType)}</Badge>
+                        <Badge tone={product.vatCode === "T1" ? "warning" : "neutral"}>{product.vatCode}</Badge>
+                        <Badge tone={visibility === "Assigned customers only" ? "warning" : "neutral"}>{visibility}</Badge>
+                      </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <form action={markCallListCalled}>
-                          <input type="hidden" name="entryId" value={entry.id} />
-                          <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
-                          <Button type="submit" size="sm" variant="secondary" className="w-full">
-                            Called
-                          </Button>
-                        </form>
-
-                        <form action={markCallListNothingNeeded}>
-                          <input type="hidden" name="entryId" value={entry.id} />
-                          <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
-                          <Button type="submit" size="sm" variant="secondary" className="w-full">
-                            Nothing
-                          </Button>
-                        </form>
-
-                        <Link
-                          href={`/portal/sales/customers/${entry.customer.accountNumber}`}
-                          className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-center text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
-                        >
-                          Open account
-                        </Link>
-
-                        <Link
-                          href="/portal/sales/orders/new"
-                          className="rounded-xl bg-freshpac-orange px-3 py-2 text-center text-xs font-bold text-freshpac-charcoal hover:bg-orange-400"
-                        >
-                          Place order
-                        </Link>
+                        <MobileDetail label="Category" value={product.category || "None"} />
+                        <MobileDetail label="Group" value={product.productGroup || "None"} />
+                        <MobileDetail label="Pack" value={product.packSize || "None"} />
+                        <MobileDetail label="Assigned" value={String(product.customerAccess.length)} />
+                        <MobileDetail label="Ex VAT" value={formatMoneyFromPence(product.priceExVatPence)} />
+                        <MobileDetail label="Inc VAT" value={formatMoneyFromPence(incVat)} />
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
 
-                {!entries.length ? (
+                {!products.length ? (
                   <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                    No call list entries found. Run <span className="font-bold">npm run prisma:seed</span> or run rollover later.
+                    No products found. Run <span className="font-bold">npm run prisma:seed</span> or create a product.
                   </div>
                 ) : null}
               </div>
@@ -210,102 +156,62 @@ export default async function CallListPage() {
                 <table className="fp-compact-table min-w-full border-collapse">
                   <thead>
                     <tr>
-                      <th>Account</th>
-                      <th>Customer</th>
-                      <th>Contact</th>
-                      <th>Delivery</th>
-                      <th>Frequency</th>
-                      <th>Rep</th>
+                      <th>Code</th>
+                      <th>Product</th>
+                      <th>Type</th>
                       <th>Status</th>
-                      <th>Basket</th>
-                      <th>Last order</th>
-                      <th>Actions</th>
+                      <th>Category</th>
+                      <th>Group</th>
+                      <th>Pack</th>
+                      <th>VAT</th>
+                      <th>Ex VAT</th>
+                      <th>Inc VAT</th>
+                      <th>Visibility</th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {entries.map((entry) => {
-                      const primaryContact = entry.customer.contacts[0];
-
-                      return (
-                        <tr key={entry.id}>
-                          <td>
-                            <Link
-                              href={`/portal/sales/customers/${entry.customer.accountNumber}`}
-                              className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
-                            >
-                              {entry.customer.accountNumber}
-                            </Link>
-                          </td>
-                          <td>
-                            <div className="font-bold text-freshpac-charcoal">{entry.customer.siteName}</div>
-                            <div className="text-xs text-freshpac-grey">{entry.notes || "No call notes."}</div>
-                          </td>
-                          <td>
-                            <div className="font-semibold">{primaryContact?.name || "No contact"}</div>
-                            <div className="text-xs text-freshpac-grey">{primaryContact?.phone || "No phone"}</div>
-                          </td>
-                          <td>
-                            <div className="font-semibold">{entry.deliveryDay || entry.customer.deliveryDay || "Not set"}</div>
-                            <div className="text-xs text-freshpac-grey">
-                              {entry.driverOrCourier || entry.customer.driverOrCourier || "No driver"}
-                            </div>
-                          </td>
-                          <td>
-                            <div className="font-semibold">{entry.contactDay || entry.customer.contactDay || "Not set"}</div>
-                            <div className="text-xs text-freshpac-grey">Every {entry.customer.contactFrequencyWeeks} week(s)</div>
-                          </td>
-                          <td>{entry.assignedSalesRep || entry.customer.assignedSalesRep || "Unassigned"}</td>
-                          <td>
-                            <Badge tone={getCallListStatusTone(entry.status)}>{formatCallListStatus(entry.status)}</Badge>
-                          </td>
-                          <td>
-                            <div className="font-bold">{getBasketValueText(entry)}</div>
-                            <Badge tone={getBasketStatusTone(entry.basketStatus)}>{formatBasketStatus(entry.basketStatus)}</Badge>
-                          </td>
-                          <td>{getLatestOrderText(entry.customer.orders)}</td>
-                          <td>
-                            <div className="flex min-w-72 flex-wrap gap-2">
-                              <Link
-                                href={`/portal/sales/customers/${entry.customer.accountNumber}`}
-                                className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
-                              >
-                                Open
-                              </Link>
-
-                              <form action={markCallListCalled}>
-                                <input type="hidden" name="entryId" value={entry.id} />
-                                <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
-                                <Button type="submit" size="sm" variant="secondary">
-                                  Called
-                                </Button>
-                              </form>
-
-                              <form action={markCallListNothingNeeded}>
-                                <input type="hidden" name="entryId" value={entry.id} />
-                                <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
-                                <Button type="submit" size="sm" variant="secondary">
-                                  Nothing
-                                </Button>
-                              </form>
-
-                              <Link
-                                href="/portal/sales/orders/new"
-                                className="rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:bg-orange-400"
-                              >
-                                Order
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {products.map((product) => (
+                      <tr key={product.id}>
+                        <td>
+                          <Link
+                            href={`/portal/sales/products/${product.code}`}
+                            className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                          >
+                            {product.code}
+                          </Link>
+                        </td>
+                        <td>
+                          <div className="font-bold text-freshpac-charcoal">{product.name}</div>
+                          <div className="max-w-md truncate text-xs text-freshpac-grey">
+                            {product.description || "No description recorded"}
+                          </div>
+                        </td>
+                        <td>
+                          <Badge tone={getProductTypeTone(product.productType)}>{formatProductType(product.productType)}</Badge>
+                        </td>
+                        <td>
+                          <Badge tone={getProductStatusTone(product.status)}>{formatProductStatus(product.status)}</Badge>
+                        </td>
+                        <td>{product.category || "None"}</td>
+                        <td>{product.productGroup || "None"}</td>
+                        <td>{product.packSize || "None"}</td>
+                        <td>{product.vatCode}</td>
+                        <td>{formatMoneyFromPence(product.priceExVatPence)}</td>
+                        <td>{formatMoneyFromPence(calculatePriceIncVatPence(product.priceExVatPence, product.vatRateBasisPoints))}</td>
+                        <td>
+                          <Badge tone={formatPublicVisibility(product) === "Assigned customers only" ? "warning" : "neutral"}>
+                            {formatPublicVisibility(product)}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
 
-                {!entries.length ? (
+                {!products.length ? (
                   <div className="p-6 text-sm text-freshpac-grey">
-                    No call list entries found. Run <span className="font-bold">npm run prisma:seed</span> or run rollover later.
+                    No products found. Run <span className="font-bold">npm run prisma:seed</span> or create a product.
                   </div>
                 ) : null}
               </div>
@@ -316,75 +222,60 @@ export default async function CallListPage() {
         <div className="grid content-start gap-4">
           <Card className="portal-card-safe">
             <CardHeader>
-              <CardTitle>Quick update</CardTitle>
-              <CardDescription>Update the first call-list entry notes quickly.</CardDescription>
+              <CardTitle>Restricted products</CardTitle>
+              <CardDescription>Coffee and retail products need customer assignment.</CardDescription>
             </CardHeader>
 
-            <CardContent>
-              {entries[0] ? (
-                <form action={updateCallListNotes} className="grid gap-3">
-                  <input type="hidden" name="entryId" value={entries[0].id} />
-                  <input type="hidden" name="accountNumber" value={entries[0].customer.accountNumber} />
-                  <p className="text-sm font-bold text-freshpac-charcoal">{entries[0].customer.siteName}</p>
-                  <textarea
-                    name="notes"
-                    defaultValue={entries[0].notes || ""}
-                    placeholder="Update call notes..."
-                    className="min-h-28 w-full rounded-2xl border border-freshpac-panel bg-white px-3 py-2 text-sm text-freshpac-charcoal outline-none transition placeholder:text-freshpac-grey/70 focus:border-freshpac-orange focus:ring-4 focus:ring-orange-100"
-                    required
-                  />
-                  <Button type="submit">Save call note</Button>
-                </form>
-              ) : (
-                <p className="text-sm text-freshpac-grey">No call list entry available.</p>
-              )}
+            <CardContent className="space-y-3">
+              {products
+                .filter((product) => product.productType !== "NORMAL")
+                .map((product) => (
+                  <Link
+                    href={`/portal/sales/products/${product.code}`}
+                    key={product.id}
+                    className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-freshpac-charcoal">{product.name}</p>
+                        <p className="text-xs text-freshpac-grey">{product.code}</p>
+                      </div>
+                      <Badge tone={getProductTypeTone(product.productType)}>{formatProductType(product.productType)}</Badge>
+                    </div>
+
+                    <p className="mt-2 text-xs text-freshpac-grey">
+                      Assigned customers: {product.customerAccess.length}
+                    </p>
+                  </Link>
+                ))}
+
+              {!products.some((product) => product.productType !== "NORMAL") ? (
+                <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                  No restricted products found.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 
           <Card className="portal-card-safe">
             <CardHeader>
-              <CardTitle>Needs Freshpac contact</CardTitle>
-              <CardDescription>Accounts that need extra care before ordering.</CardDescription>
+              <CardTitle>Database status</CardTitle>
+              <CardDescription>The product module is now reading real records.</CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-3">
-              {attentionEntries.map((entry) => (
-                <div key={entry.id} className="rounded-2xl border border-freshpac-panel bg-white p-3">
-                  <Link href={`/portal/sales/customers/${entry.customer.accountNumber}`} className="block">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-freshpac-charcoal">{entry.customer.siteName}</p>
-                        <p className="text-xs text-freshpac-grey">{entry.customer.accountNumber}</p>
-                      </div>
-                      <Badge tone={getCustomerStatusTone(entry.customer.status)}>
-                        {formatCustomerStatus(entry.customer.status)}
-                      </Badge>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      <Badge tone={getCallListStatusTone(entry.status)}>{formatCallListStatus(entry.status)}</Badge>
-                      <Badge tone={getBasketStatusTone(entry.basketStatus)}>{formatBasketStatus(entry.basketStatus)}</Badge>
-                    </div>
-
-                    <p className="mt-2 text-xs text-freshpac-grey">{entry.notes || "No notes recorded."}</p>
-                  </Link>
-
-                  <form action={markCallListNeedsContact} className="mt-3">
-                    <input type="hidden" name="entryId" value={entry.id} />
-                    <input type="hidden" name="accountNumber" value={entry.customer.accountNumber} />
-                    <Button type="submit" size="sm" variant="secondary">
-                      <AlertTriangle className="mr-2 size-4" />
-                      Keep flagged
-                    </Button>
-                  </form>
-                </div>
-              ))}
-
-              {!attentionEntries.length ? (
-                <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                  No call list entries currently need extra contact.
-                </p>
-              ) : null}
+            <CardContent className="grid gap-2">
+              <Button type="button" variant="secondary">
+                Import Sage product list
+              </Button>
+              <Button type="button" variant="secondary">
+                Print stocktaking list
+              </Button>
+              <Button type="button" variant="secondary">
+                Print coffee pick list
+              </Button>
+              <Button type="button" variant="secondary">
+                Review inactive products
+              </Button>
             </CardContent>
           </Card>
         </div>
