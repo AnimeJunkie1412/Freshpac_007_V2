@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./mobile-fixes.css";
 
 export const metadata: Metadata = {
-  title: "Freshpac B2B Operations Platform",
-  description: "Public website, ordering portal, sales portal and engineering portal framework for Freshpac."
+  title: "Freshpac B2B Platform",
+  description: "Freshpac Teas and Coffees operations platform"
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en-GB">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );
