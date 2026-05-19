@@ -64,39 +64,39 @@ export default async function CustomerDetailPage({
       subtitle={`${customer.accountNumber} · ${customer.legalName || "No legal name recorded"}`}
       activeHref="/portal/sales/customers"
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         <Link
           href="/portal/sales/customers"
-          className="inline-flex items-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-sm font-semibold text-freshpac-charcoal hover:border-freshpac-orange"
+          className="inline-flex w-fit items-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-sm font-semibold text-freshpac-charcoal hover:border-freshpac-orange"
         >
           <ArrowLeft className="mr-2 size-4" />
           Back to customers
         </Link>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <Button type="button" variant="secondary" size="sm">
             <Pencil className="mr-2 size-4" />
-            Edit account
+            Edit
           </Button>
           <Button type="button" variant="secondary" size="sm">
             <ShoppingBasket className="mr-2 size-4" />
-            Place order
+            Order
           </Button>
           <Button type="button" variant="secondary" size="sm">
             <Wrench className="mr-2 size-4" />
-            Create engineer job
+            Job
           </Button>
           <Button type="button" size="sm">
             <Printer className="mr-2 size-4" />
-            Print report
+            Print
           </Button>
         </div>
       </div>
 
-      <Card className="mb-4">
+      <Card className="portal-card-safe mb-4">
         <CardContent>
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={formatCustomerStatus(customer.status)} tone={getCustomerStatusTone(customer.status)} />
                 <Badge tone={customer.priceVisibility ? "success" : "warning"}>
@@ -108,10 +108,10 @@ export default async function CustomerDetailPage({
                 <Badge>{formatDeliveryMethod(customer.deliveryMethod)}</Badge>
               </div>
 
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">{customer.siteName}</h2>
-              <p className="text-sm text-freshpac-grey">{customer.legalName || "No legal name recorded"}</p>
+              <h2 className="mt-3 break-words text-2xl font-black tracking-tight text-freshpac-charcoal">{customer.siteName}</h2>
+              <p className="break-words text-sm text-freshpac-grey">{customer.legalName || "No legal name recorded"}</p>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <DetailField label="Account" value={customer.accountNumber} />
                 <DetailField
                   label="Delivery"
@@ -122,12 +122,12 @@ export default async function CustomerDetailPage({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
+            <div className="min-w-0 rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">Account flags</p>
               <div className="mt-3 space-y-2">
                 {flags.map((flag) => (
                   <div key={flag.label} className="rounded-xl border border-freshpac-panel bg-white p-3">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-bold text-freshpac-charcoal">{flag.label}</p>
                       <Badge tone={flag.tone}>{flag.label}</Badge>
                     </div>
@@ -140,7 +140,7 @@ export default async function CustomerDetailPage({
         </CardContent>
       </Card>
 
-      <div className="sticky top-[86px] z-20 mb-4 overflow-x-auto rounded-2xl border border-freshpac-panel bg-white p-1 shadow-panel">
+      <div className="portal-scroll-panel sticky top-[86px] z-20 mb-4 rounded-2xl border border-freshpac-panel bg-white p-1 shadow-panel">
         <div className="flex min-w-max gap-1">
           {tabs.map((tab) => (
             <a
@@ -162,11 +162,11 @@ export default async function CustomerDetailPage({
           action={
             <Button type="button" variant="secondary" size="sm">
               <ClipboardList className="mr-2 size-4" />
-              Add account note
+              Add note
             </Button>
           }
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <DetailField label="Parent account" value={customer.parentAccount?.accountNumber || "None"} />
             <DetailField
               label="Linked children"
@@ -197,8 +197,8 @@ export default async function CustomerDetailPage({
               {customer.contacts.map((contact) => (
                 <div key={contact.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-black text-freshpac-charcoal">{contact.name}</p>
+                    <div className="min-w-0">
+                      <p className="break-words font-black text-freshpac-charcoal">{contact.name}</p>
                       <p className="text-sm text-freshpac-grey">{contact.role || "No role recorded"}</p>
                     </div>
                     {contact.isPrimary ? <Badge tone="success">Primary</Badge> : null}
@@ -207,7 +207,7 @@ export default async function CustomerDetailPage({
                     <p>
                       <span className="font-bold text-freshpac-charcoal">Phone:</span> {contact.phone || "Not recorded"}
                     </p>
-                    <p>
+                    <p className="break-words">
                       <span className="font-bold text-freshpac-charcoal">Email:</span> {contact.email || "Not recorded"}
                     </p>
                   </div>
@@ -254,32 +254,51 @@ export default async function CustomerDetailPage({
           }
         >
           {customer.prices.length ? (
-            <div className="overflow-x-auto">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Product</th>
-                    <th>Type</th>
-                    <th>Default ex VAT</th>
-                    <th>Customer ex VAT</th>
-                    <th>VAT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {customer.prices.map((line) => (
-                    <tr key={line.id}>
-                      <td className="font-bold">{line.product.code}</td>
-                      <td>{line.product.name}</td>
-                      <td>{formatProductType(line.product.productType)}</td>
-                      <td>{formatMoneyFromPence(line.product.priceExVatPence)}</td>
-                      <td className="font-black text-freshpac-charcoal">{formatMoneyFromPence(line.priceExVatPence)}</td>
-                      <td>{line.product.vatCode}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="grid gap-3 md:hidden">
+                {customer.prices.map((line) => (
+                  <div key={line.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{line.product.code}</p>
+                    <p className="mt-1 font-black text-freshpac-charcoal">{line.product.name}</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MobileDetail label="Type" value={formatProductType(line.product.productType)} />
+                      <MobileDetail label="VAT" value={line.product.vatCode} />
+                      <MobileDetail label="Default" value={formatMoneyFromPence(line.product.priceExVatPence)} />
+                      <MobileDetail label="Customer" value={formatMoneyFromPence(line.priceExVatPence)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block">
+                <div className="portal-scroll-panel">
+                  <table className="fp-compact-table min-w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th>Code</th>
+                        <th>Product</th>
+                        <th>Type</th>
+                        <th>Default ex VAT</th>
+                        <th>Customer ex VAT</th>
+                        <th>VAT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customer.prices.map((line) => (
+                        <tr key={line.id}>
+                          <td className="font-bold">{line.product.code}</td>
+                          <td>{line.product.name}</td>
+                          <td>{formatProductType(line.product.productType)}</td>
+                          <td>{formatMoneyFromPence(line.product.priceExVatPence)}</td>
+                          <td className="font-black text-freshpac-charcoal">{formatMoneyFromPence(line.priceExVatPence)}</td>
+                          <td>{line.product.vatCode}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           ) : (
             <EmptyState message="No customer-specific pricing recorded." />
           )}
@@ -292,7 +311,7 @@ export default async function CustomerDetailPage({
           action={
             <Button type="button" variant="secondary" size="sm">
               <Coffee className="mr-2 size-4" />
-              Manage assignments
+              Manage
             </Button>
           }
         >
@@ -312,36 +331,59 @@ export default async function CustomerDetailPage({
 
         <ModuleSection id="equipment" title="Equipment onsite" description="Machine records, serial numbers, status and service information.">
           {customer.equipment.length ? (
-            <div className="overflow-x-auto">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>Make / model</th>
-                    <th>Serial</th>
-                    <th>Status</th>
-                    <th>Installed</th>
-                    <th>Last service</th>
-                    <th>Cover</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {customer.equipment.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.description}</td>
-                      <td>{item.makeModel || "Not recorded"}</td>
-                      <td className="font-bold">{item.serialNumber || "Not recorded"}</td>
-                      <td>
-                        <StatusBadge status={formatEquipmentStatus(item.status)} />
-                      </td>
-                      <td>{formatDate(item.installedAt)}</td>
-                      <td>{formatDate(item.lastServiceAt)}</td>
-                      <td>{item.breakdownCover || "None"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="grid gap-3 md:hidden">
+                {customer.equipment.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                    <p className="font-black text-freshpac-charcoal">{item.description}</p>
+                    <p className="text-xs text-freshpac-grey">{item.makeModel || "Not recorded"}</p>
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      <StatusBadge status={formatEquipmentStatus(item.status)} />
+                      <Badge>{item.breakdownCover || "No cover"}</Badge>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MobileDetail label="Serial" value={item.serialNumber || "Not recorded"} />
+                      <MobileDetail label="Installed" value={formatDate(item.installedAt)} />
+                      <MobileDetail label="Last service" value={formatDate(item.lastServiceAt)} />
+                      <MobileDetail label="Cover" value={item.breakdownCover || "None"} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block">
+                <div className="portal-scroll-panel">
+                  <table className="fp-compact-table min-w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th>Description</th>
+                        <th>Make / model</th>
+                        <th>Serial</th>
+                        <th>Status</th>
+                        <th>Installed</th>
+                        <th>Last service</th>
+                        <th>Cover</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customer.equipment.map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.description}</td>
+                          <td>{item.makeModel || "Not recorded"}</td>
+                          <td className="font-bold">{item.serialNumber || "Not recorded"}</td>
+                          <td>
+                            <StatusBadge status={formatEquipmentStatus(item.status)} />
+                          </td>
+                          <td>{formatDate(item.installedAt)}</td>
+                          <td>{formatDate(item.lastServiceAt)}</td>
+                          <td>{item.breakdownCover || "None"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           ) : (
             <EmptyState message="No equipment recorded." />
           )}
@@ -363,34 +405,54 @@ export default async function CustomerDetailPage({
 
         <ModuleSection id="breakdowns" title="Breakdown history" description="Engineer jobs linked to this customer.">
           {customer.engineerJobs.length ? (
-            <div className="overflow-x-auto">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Job</th>
-                    <th>Status</th>
-                    <th>Type</th>
-                    <th>Fault</th>
-                    <th>Chargeable</th>
-                    <th>Parts</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {customer.engineerJobs.map((job) => (
-                    <tr key={job.id}>
-                      <td>{formatDate(job.createdAt)}</td>
-                      <td className="font-bold">{job.reference || job.temporaryReference || "No ref"}</td>
-                      <td>{job.status}</td>
-                      <td>{job.jobTypes.join(", ")}</td>
-                      <td>{job.reportedFault || "No fault recorded"}</td>
-                      <td>{job.chargeable}</td>
-                      <td>{job.partsRequests.length}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="grid gap-3 md:hidden">
+                {customer.engineerJobs.map((job) => (
+                  <div key={job.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{formatDate(job.createdAt)}</p>
+                    <p className="mt-1 font-black text-freshpac-charcoal">{job.reference || job.temporaryReference || "No ref"}</p>
+                    <p className="mt-2 text-sm text-freshpac-grey">{job.reportedFault || "No fault recorded"}</p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MobileDetail label="Status" value={job.status} />
+                      <MobileDetail label="Type" value={job.jobTypes.join(", ")} />
+                      <MobileDetail label="Chargeable" value={job.chargeable} />
+                      <MobileDetail label="Parts" value={String(job.partsRequests.length)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block">
+                <div className="portal-scroll-panel">
+                  <table className="fp-compact-table min-w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Job</th>
+                        <th>Status</th>
+                        <th>Type</th>
+                        <th>Fault</th>
+                        <th>Chargeable</th>
+                        <th>Parts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customer.engineerJobs.map((job) => (
+                        <tr key={job.id}>
+                          <td>{formatDate(job.createdAt)}</td>
+                          <td className="font-bold">{job.reference || job.temporaryReference || "No ref"}</td>
+                          <td>{job.status}</td>
+                          <td>{job.jobTypes.join(", ")}</td>
+                          <td>{job.reportedFault || "No fault recorded"}</td>
+                          <td>{job.chargeable}</td>
+                          <td>{job.partsRequests.length}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           ) : (
             <EmptyState message="No engineer jobs recorded." />
           )}
@@ -427,7 +489,7 @@ export default async function CustomerDetailPage({
                     <div key={note.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="font-black text-freshpac-charcoal">{note.createdByUser?.fullName || "Unknown user"}</p>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Badge>{formatDateTime(note.createdAt)}</Badge>
                           <Badge tone={note.visibility === "internal" ? "neutral" : "info"}>{note.visibility}</Badge>
                         </div>
@@ -450,7 +512,7 @@ export default async function CustomerDetailPage({
                 .filter((item) => item.rentalAmountPence || item.rentalNotes)
                 .map((item) => (
                   <div key={item.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
-                    <div className="grid gap-3 md:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                       <DetailField label="Machine" value={item.description} />
                       <DetailField label="Rental amount" value={formatMoneyFromPence(item.rentalAmountPence)} />
                       <DetailField label="Condition" value={item.machineCondition || "Not recorded"} />
@@ -471,34 +533,54 @@ export default async function CustomerDetailPage({
 
         <ModuleSection id="orders" title="Orders" description="Recent order history for this account.">
           {customer.orders.length ? (
-            <div className="overflow-x-auto">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Reference</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Total inc VAT</th>
-                    <th>Source</th>
-                    <th>Lines</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {customer.orders.map((order) => (
-                    <tr key={order.id}>
-                      <td className="font-bold">{order.reference || order.temporaryReference || "No reference"}</td>
-                      <td>{formatDate(order.createdAt)}</td>
-                      <td>
-                        <StatusBadge status={formatOrderStatus(order.status)} />
-                      </td>
-                      <td>{formatMoneyFromPence(order.totalIncVatPence)}</td>
-                      <td>{order.source}</td>
-                      <td>{order.lines.length}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="grid gap-3 md:hidden">
+                {customer.orders.map((order) => (
+                  <div key={order.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
+                      {order.reference || order.temporaryReference || "No reference"}
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MobileDetail label="Date" value={formatDate(order.createdAt)} />
+                      <MobileDetail label="Status" value={formatOrderStatus(order.status)} />
+                      <MobileDetail label="Total" value={formatMoneyFromPence(order.totalIncVatPence)} />
+                      <MobileDetail label="Lines" value={String(order.lines.length)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block">
+                <div className="portal-scroll-panel">
+                  <table className="fp-compact-table min-w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th>Reference</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total inc VAT</th>
+                        <th>Source</th>
+                        <th>Lines</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customer.orders.map((order) => (
+                        <tr key={order.id}>
+                          <td className="font-bold">{order.reference || order.temporaryReference || "No reference"}</td>
+                          <td>{formatDate(order.createdAt)}</td>
+                          <td>
+                            <StatusBadge status={formatOrderStatus(order.status)} />
+                          </td>
+                          <td>{formatMoneyFromPence(order.totalIncVatPence)}</td>
+                          <td>{order.source}</td>
+                          <td>{order.lines.length}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           ) : (
             <EmptyState message="No orders recorded." />
           )}
@@ -563,5 +645,14 @@ function EmptyState({ message }: { message: string }) {
     <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
       {message}
     </p>
+  );
+}
+
+function MobileDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 break-words text-xs font-bold text-freshpac-charcoal">{value}</p>
+    </div>
   );
 }
