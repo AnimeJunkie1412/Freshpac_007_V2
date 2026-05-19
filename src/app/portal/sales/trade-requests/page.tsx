@@ -26,7 +26,7 @@ export default async function TradeRequestsPage() {
       activeHref="/portal/sales/trade-requests"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <CardTitle>Request search</CardTitle>
             <CardDescription>
@@ -57,7 +57,7 @@ export default async function TradeRequestsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <CardTitle>Request counters</CardTitle>
             <CardDescription>Live trade enquiry snapshot.</CardDescription>
@@ -74,7 +74,7 @@ export default async function TradeRequestsPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="portal-card-safe">
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -88,58 +88,109 @@ export default async function TradeRequestsPage() {
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="fp-compact-table min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th>Business</th>
-                  <th>Contact</th>
-                  <th>Status</th>
-                  <th>Assigned rep</th>
-                  <th>Created</th>
-                  <th>Linked customer</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {requests.map((request) => (
-                  <tr key={request.id}>
-                    <td>
-                      <Link
-                        href={`/portal/sales/trade-requests/${request.id}`}
-                        className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
-                      >
+          <div className="block p-3 md:hidden">
+            <div className="grid gap-3">
+              {requests.map((request) => (
+                <Link
+                  key={request.id}
+                  href={`/portal/sales/trade-requests/${request.id}`}
+                  className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm transition hover:border-freshpac-orange hover:bg-orange-50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
+                        {request.relationToCompany}
+                      </p>
+                      <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">
                         {request.businessName}
-                      </Link>
-                      <div className="text-xs text-freshpac-grey">{request.relationToCompany}</div>
-                    </td>
-                    <td>
-                      <div className="font-semibold">{request.name}</div>
-                      <div className="text-xs text-freshpac-grey">{request.phone}</div>
-                      <div className="text-xs text-freshpac-grey">{request.email}</div>
-                    </td>
-                    <td>
-                      <Badge tone={getTradeRequestStatusTone(request.status)}>
-                        {formatTradeRequestStatus(request.status)}
-                      </Badge>
-                    </td>
-                    <td>{request.assignedSalesRep || "Unassigned"}</td>
-                    <td>{formatDateTime(request.createdAt)}</td>
-                    <td>{request.customer ? request.customer.accountNumber : "None"}</td>
-                    <td>
-                      <div className="max-w-md truncate">{request.notes || "No notes recorded."}</div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      </p>
+                      <p className="truncate text-xs text-freshpac-grey">
+                        {request.name} · {request.phone}
+                      </p>
+                    </div>
 
-            {!requests.length ? (
-              <div className="p-6 text-sm text-freshpac-grey">
-                No trade requests found yet. The public form will create records here once wired.
-              </div>
-            ) : null}
+                    <Badge tone={getTradeRequestStatusTone(request.status)}>
+                      {formatTradeRequestStatus(request.status)}
+                    </Badge>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <MobileDetail label="Email" value={request.email} />
+                    <MobileDetail label="Rep" value={request.assignedSalesRep || "Unassigned"} />
+                    <MobileDetail label="Created" value={formatDateTime(request.createdAt)} />
+                    <MobileDetail label="Customer" value={request.customer ? request.customer.accountNumber : "None"} />
+                  </div>
+
+                  {request.notes ? (
+                    <p className="mt-3 rounded-xl bg-freshpac-cream/70 p-3 text-xs font-semibold text-freshpac-charcoal">
+                      {request.notes}
+                    </p>
+                  ) : null}
+                </Link>
+              ))}
+
+              {!requests.length ? (
+                <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                  No trade requests found yet. The public form will create records here once wired.
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="hidden md:block">
+            <div className="portal-scroll-panel">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Business</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Assigned rep</th>
+                    <th>Created</th>
+                    <th>Linked customer</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {requests.map((request) => (
+                    <tr key={request.id}>
+                      <td>
+                        <Link
+                          href={`/portal/sales/trade-requests/${request.id}`}
+                          className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                        >
+                          {request.businessName}
+                        </Link>
+                        <div className="text-xs text-freshpac-grey">{request.relationToCompany}</div>
+                      </td>
+                      <td>
+                        <div className="font-semibold">{request.name}</div>
+                        <div className="text-xs text-freshpac-grey">{request.phone}</div>
+                        <div className="text-xs text-freshpac-grey">{request.email}</div>
+                      </td>
+                      <td>
+                        <Badge tone={getTradeRequestStatusTone(request.status)}>
+                          {formatTradeRequestStatus(request.status)}
+                        </Badge>
+                      </td>
+                      <td>{request.assignedSalesRep || "Unassigned"}</td>
+                      <td>{formatDateTime(request.createdAt)}</td>
+                      <td>{request.customer ? request.customer.accountNumber : "None"}</td>
+                      <td>
+                        <div className="max-w-md truncate">{request.notes || "No notes recorded."}</div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {!requests.length ? (
+                <div className="p-6 text-sm text-freshpac-grey">
+                  No trade requests found yet. The public form will create records here once wired.
+                </div>
+              ) : null}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -173,6 +224,15 @@ function MiniStat({
         {icon}
       </div>
       <p className="mt-2 text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function MobileDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">{value}</p>
     </div>
   );
 }
