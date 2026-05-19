@@ -1,5 +1,18 @@
 import type { ReactNode } from "react";
-import { Activity, AlertTriangle, Archive, ClipboardList, DatabaseZap, Filter, PackageCheck, Search, ShieldCheck, ShoppingBasket, UsersRound, Wrench } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Archive,
+  ClipboardList,
+  DatabaseZap,
+  Filter,
+  PackageCheck,
+  Search,
+  ShieldCheck,
+  ShoppingBasket,
+  UsersRound,
+  Wrench
+} from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -32,7 +45,7 @@ export default async function AuditLogPage() {
       activeHref="/portal/sales/audit-log"
     >
       <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_420px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <CardTitle>Audit search</CardTitle>
             <CardDescription>
@@ -63,7 +76,7 @@ export default async function AuditLogPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <CardTitle>Audit counters</CardTitle>
             <CardDescription>Live audit log snapshot.</CardDescription>
@@ -83,7 +96,7 @@ export default async function AuditLogPage() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_380px]">
-        <Card>
+        <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -97,56 +110,107 @@ export default async function AuditLogPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Action</th>
-                    <th>Entity</th>
-                    <th>Entity ID</th>
-                    <th>User</th>
-                    <th>Retention</th>
-                    <th>Reason / note</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {entries.map((entry) => (
-                    <tr key={entry.id}>
-                      <td>{formatDateTime(entry.createdAt)}</td>
-                      <td>
-                        <Badge tone={getAuditActionTone(entry.actionType)}>
+            <div className="block p-3 md:hidden">
+              <div className="grid gap-3">
+                {entries.map((entry) => (
+                  <div key={entry.id} className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
+                          {prettifyAuditLabel(entry.entityType)}
+                        </p>
+                        <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">
                           {prettifyAuditLabel(entry.actionType)}
-                        </Badge>
-                      </td>
-                      <td className="font-bold">{prettifyAuditLabel(entry.entityType)}</td>
-                      <td>{entry.entityId || "None"}</td>
-                      <td>{entry.user?.fullName || "System"}</td>
-                      <td>
-                        <Badge tone={getRetentionTone(entry.retentionClass)}>
-                          {formatRetentionClass(entry.retentionClass)}
-                        </Badge>
-                      </td>
-                      <td>
-                        <div className="max-w-md truncate">{entry.reason || "No note recorded."}</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </p>
+                        <p className="truncate text-xs text-freshpac-grey">
+                          {formatDateTime(entry.createdAt)}
+                        </p>
+                      </div>
 
-              {!entries.length ? (
-                <div className="p-6 text-sm text-freshpac-grey">
-                  No audit entries found. Seed data should create one starter audit event.
-                </div>
-              ) : null}
+                      <Badge tone={getAuditActionTone(entry.actionType)}>
+                        {prettifyAuditLabel(entry.actionType)}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MobileDetail label="Entity ID" value={entry.entityId || "None"} />
+                      <MobileDetail label="User" value={entry.user?.fullName || "System"} />
+                      <MobileDetail label="Retention" value={formatRetentionClass(entry.retentionClass)} />
+                      <MobileDetail label="Class" value={entry.retentionClass} />
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-1">
+                      <Badge tone={getRetentionTone(entry.retentionClass)}>
+                        {formatRetentionClass(entry.retentionClass)}
+                      </Badge>
+                    </div>
+
+                    <p className="mt-3 rounded-xl bg-freshpac-cream/70 p-3 text-xs font-semibold text-freshpac-charcoal">
+                      {entry.reason || "No note recorded."}
+                    </p>
+                  </div>
+                ))}
+
+                {!entries.length ? (
+                  <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                    No audit entries found. Seed data should create one starter audit event.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="hidden md:block">
+              <div className="portal-scroll-panel">
+                <table className="fp-compact-table min-w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Action</th>
+                      <th>Entity</th>
+                      <th>Entity ID</th>
+                      <th>User</th>
+                      <th>Retention</th>
+                      <th>Reason / note</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {entries.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{formatDateTime(entry.createdAt)}</td>
+                        <td>
+                          <Badge tone={getAuditActionTone(entry.actionType)}>
+                            {prettifyAuditLabel(entry.actionType)}
+                          </Badge>
+                        </td>
+                        <td className="font-bold">{prettifyAuditLabel(entry.entityType)}</td>
+                        <td>{entry.entityId || "None"}</td>
+                        <td>{entry.user?.fullName || "System"}</td>
+                        <td>
+                          <Badge tone={getRetentionTone(entry.retentionClass)}>
+                            {formatRetentionClass(entry.retentionClass)}
+                          </Badge>
+                        </td>
+                        <td>
+                          <div className="max-w-md truncate">{entry.reason || "No note recorded."}</div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {!entries.length ? (
+                  <div className="p-6 text-sm text-freshpac-grey">
+                    No audit entries found. Seed data should create one starter audit event.
+                  </div>
+                ) : null}
+              </div>
             </div>
           </CardContent>
         </Card>
 
         <div className="grid content-start gap-4">
-          <Card>
+          <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Critical events</CardTitle>
               <CardDescription>High-attention audit activity.</CardDescription>
@@ -156,8 +220,8 @@ export default async function AuditLogPage() {
               {criticalEntries.map((entry) => (
                 <div key={entry.id} className="rounded-2xl border border-freshpac-panel bg-white p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-black text-freshpac-charcoal">{prettifyAuditLabel(entry.actionType)}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-freshpac-charcoal">{prettifyAuditLabel(entry.actionType)}</p>
                       <p className="text-xs text-freshpac-grey">{formatDateTime(entry.createdAt)}</p>
                     </div>
                     <Badge tone={getAuditActionTone(entry.actionType)}>{prettifyAuditLabel(entry.entityType)}</Badge>
@@ -175,7 +239,7 @@ export default async function AuditLogPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Audit actions</CardTitle>
               <CardDescription>Export and review tools.</CardDescription>
@@ -195,7 +259,7 @@ export default async function AuditLogPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Retention note</CardTitle>
               <CardDescription>Important data safety rule.</CardDescription>
@@ -241,6 +305,15 @@ function MiniStat({
         {icon}
       </div>
       <p className="mt-2 text-2xl font-black">{value}</p>
+    </div>
+  );
+}
+
+function MobileDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">{value}</p>
     </div>
   );
 }
