@@ -4,8 +4,17 @@ body {
   overflow-x: hidden;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
 }
 
 .portal-mobile-safe {
@@ -20,6 +29,12 @@ body {
   max-width: 100%;
 }
 
+.portal-card-safe {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 .portal-scroll-panel {
   min-width: 0;
   max-width: 100%;
@@ -29,6 +44,11 @@ body {
 
 .fp-compact-table {
   width: 100%;
+}
+
+.fp-compact-table th,
+.fp-compact-table td {
+  vertical-align: top;
 }
 
 @media (max-width: 768px) {
@@ -42,7 +62,44 @@ body {
   }
 
   .portal-card-safe {
-    min-width: 0;
     max-width: calc(100vw - 1rem);
+  }
+
+  .portal-content-safe {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    max-width: 100%;
+  }
+
+  form {
+    min-width: 0;
+  }
+
+  .grid {
+    min-width: 0;
+  }
+
+  .flex {
+    min-width: 0;
+  }
+
+  [class*="grid-cols-"] > *,
+  [class*="xl:grid-cols-"] > *,
+  [class*="lg:grid-cols-"] > *,
+  [class*="md:grid-cols-"] > * {
+    min-width: 0;
+  }
+
+  a,
+  p,
+  span,
+  div {
+    overflow-wrap: anywhere;
   }
 }
