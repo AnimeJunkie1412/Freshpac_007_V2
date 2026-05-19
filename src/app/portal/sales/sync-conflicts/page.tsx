@@ -54,40 +54,79 @@ export default function SyncConflictsPage() {
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="portal-scroll-panel">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Entity</th>
-                    <th>Reference</th>
-                    <th>Status</th>
-                    <th>Offline change</th>
-                    <th>Cloud change</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
+            <div className="block p-3 md:hidden">
+              <div className="grid gap-3">
+                {conflicts.map((conflict) => (
+                  <div
+                    key={`${conflict.entity}-${conflict.reference}`}
+                    className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
+                          {conflict.entity}
+                        </p>
+                        <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">
+                          {conflict.reference}
+                        </p>
+                      </div>
 
-                <tbody>
-                  {conflicts.map((conflict) => (
-                    <tr key={`${conflict.entity}-${conflict.reference}`}>
-                      <td className="font-bold">{conflict.entity}</td>
-                      <td>{conflict.reference}</td>
-                      <td>
-                        <Badge tone={conflict.status === "Pending Sync" ? "info" : "warning"}>
-                          {conflict.status}
-                        </Badge>
-                      </td>
-                      <td>{conflict.offlineChange}</td>
-                      <td>{conflict.cloudChange}</td>
-                      <td>
-                        <Button type="button" size="sm" variant="secondary">
-                          {conflict.action}
-                        </Button>
-                      </td>
+                      <Badge tone={conflict.status === "Pending Sync" ? "info" : "warning"}>
+                        {conflict.status}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-3 grid gap-2">
+                      <ConflictDetail label="Offline change" value={conflict.offlineChange} />
+                      <ConflictDetail label="Cloud change" value={conflict.cloudChange} />
+                    </div>
+
+                    <div className="mt-3">
+                      <Button type="button" size="sm" variant="secondary" className="w-full">
+                        {conflict.action}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="hidden md:block">
+              <div className="portal-scroll-panel">
+                <table className="fp-compact-table min-w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th>Entity</th>
+                      <th>Reference</th>
+                      <th>Status</th>
+                      <th>Offline change</th>
+                      <th>Cloud change</th>
+                      <th>Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {conflicts.map((conflict) => (
+                      <tr key={`${conflict.entity}-${conflict.reference}`}>
+                        <td className="font-bold">{conflict.entity}</td>
+                        <td>{conflict.reference}</td>
+                        <td>
+                          <Badge tone={conflict.status === "Pending Sync" ? "info" : "warning"}>
+                            {conflict.status}
+                          </Badge>
+                        </td>
+                        <td>{conflict.offlineChange}</td>
+                        <td>{conflict.cloudChange}</td>
+                        <td>
+                          <Button type="button" size="sm" variant="secondary">
+                            {conflict.action}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -131,6 +170,15 @@ export default function SyncConflictsPage() {
         </div>
       </div>
     </PortalShell>
+  );
+}
+
+function ConflictDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-freshpac-cream/70 p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 text-xs font-bold text-freshpac-charcoal">{value}</p>
+    </div>
   );
 }
 
