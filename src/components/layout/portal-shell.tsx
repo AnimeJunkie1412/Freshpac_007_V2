@@ -7,6 +7,7 @@ import {
   FileText,
   HardHat,
   Home,
+  LogOut,
   Package,
   Phone,
   ShieldCheck,
@@ -14,6 +15,10 @@ import {
   UsersRound,
   Wrench
 } from "lucide-react";
+import { logout } from "@/app/login/actions";
+import { formatUserRole, getCurrentUserProfile } from "@/lib/auth/current-user";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
   { label: "Dashboard", href: "/portal", icon: Home },
@@ -30,7 +35,7 @@ const navItems = [
   { label: "Rollover", href: "/portal/rollover", icon: ClipboardList }
 ];
 
-export function PortalShell({
+export async function PortalShell({
   title,
   subtitle,
   activeHref,
@@ -41,6 +46,8 @@ export function PortalShell({
   activeHref?: string;
   children: ReactNode;
 }) {
+  const profile = await getCurrentUserProfile();
+
   return (
     <div className="portal-mobile-safe min-h-screen bg-freshpac-cream">
       <div className="flex min-h-screen min-w-0 flex-col lg:flex-row">
@@ -55,9 +62,25 @@ export function PortalShell({
                   Operations Portal
                 </p>
               </Link>
+
+              <div className="mt-3 rounded-2xl border border-freshpac-panel bg-freshpac-cream/70 p-3">
+                <p className="truncate text-sm font-black text-freshpac-charcoal">
+                  {profile?.fullName || "Signed in user"}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge tone="info">{formatUserRole(profile?.role)}</Badge>
+                </div>
+
+                <form action={logout} className="mt-3">
+                  <Button type="submit" size="sm" variant="secondary" className="w-full">
+                    <LogOut className="mr-2 size-4" />
+                    Sign out
+                  </Button>
+                </form>
+              </div>
             </div>
 
-            <nav className="portal-scroll-panel flex gap-2 p-3 lg:block lg:max-h-[calc(100vh-88px)] lg:space-y-1 lg:overflow-y-auto">
+            <nav className="portal-scroll-panel flex gap-2 p-3 lg:block lg:max-h-[calc(100vh-226px)] lg:space-y-1 lg:overflow-y-auto">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeHref

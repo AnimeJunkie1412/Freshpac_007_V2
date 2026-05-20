@@ -13,10 +13,18 @@ export function createSupabaseServerClient() {
           return cookieStore.get(name)?.value;
         },
         set(name: string, value: string, options) {
-          cookieStore.set({ name, value, ...options });
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch {
+            // Safe to ignore when called from a Server Component.
+          }
         },
         remove(name: string, options) {
-          cookieStore.set({ name, value: "", ...options });
+          try {
+            cookieStore.set({ name, value: "", ...options });
+          } catch {
+            // Safe to ignore when called from a Server Component.
+          }
         }
       }
     }
