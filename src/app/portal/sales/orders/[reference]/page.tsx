@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Banknote, FileText, Pencil, Printer, RotateCcw, Truck, XCircle } from "lucide-react";
+import { ArrowLeft, Banknote, FileText, Printer, RotateCcw, Truck, XCircle } from "lucide-react";
 import {
   cancelOrder,
   markOrderPaid,
@@ -61,23 +61,23 @@ export default async function OrderDetailPage({
       subtitle={`${order.customer.siteName} · ${order.customer.accountNumber}`}
       activeHref="/portal/sales/orders"
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         <Link
           href="/portal/sales/orders"
-          className="inline-flex items-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-sm font-semibold text-freshpac-charcoal hover:border-freshpac-orange"
+          className="inline-flex w-fit items-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-sm font-semibold text-freshpac-charcoal hover:border-freshpac-orange"
         >
           <ArrowLeft className="mr-2 size-4" />
           Back to orders
         </Link>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {order.status === "AWAITING_PAYMENT" ? (
             <form action={markOrderPaid}>
               <input type="hidden" name="orderId" value={order.id} />
               <input type="hidden" name="reference" value={orderReference} />
-              <Button type="submit" variant="secondary" size="sm">
+              <Button type="submit" variant="secondary" size="sm" className="w-full">
                 <Banknote className="mr-2 size-4" />
-                Mark paid
+                Paid
               </Button>
             </form>
           ) : null}
@@ -86,9 +86,9 @@ export default async function OrderDetailPage({
             <form action={markOrderProcessed}>
               <input type="hidden" name="orderId" value={order.id} />
               <input type="hidden" name="reference" value={orderReference} />
-              <Button type="submit" size="sm">
+              <Button type="submit" size="sm" className="w-full">
                 <Printer className="mr-2 size-4" />
-                Mark processed
+                Process
               </Button>
             </form>
           ) : null}
@@ -97,7 +97,7 @@ export default async function OrderDetailPage({
             <form action={cancelOrder}>
               <input type="hidden" name="orderId" value={order.id} />
               <input type="hidden" name="reference" value={orderReference} />
-              <Button type="submit" variant="secondary" size="sm">
+              <Button type="submit" variant="secondary" size="sm" className="w-full">
                 <XCircle className="mr-2 size-4" />
                 Cancel
               </Button>
@@ -111,10 +111,10 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
-      <Card className="mb-4">
+      <Card className="portal-card-safe mb-4">
         <CardContent>
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                 <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
@@ -125,10 +125,10 @@ export default async function OrderDetailPage({
                 {order.editedByFreshpac ? <Badge tone="warning">Edited by Freshpac</Badge> : null}
               </div>
 
-              <h2 className="mt-3 text-2xl font-black tracking-tight text-freshpac-charcoal">{orderReference}</h2>
-              <p className="text-sm text-freshpac-grey">{order.customer.siteName}</p>
+              <h2 className="mt-3 break-words text-2xl font-black tracking-tight text-freshpac-charcoal">{orderReference}</h2>
+              <p className="break-words text-sm text-freshpac-grey">{order.customer.siteName}</p>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <DetailField label="Order date" value={formatDateTime(order.createdAt)} />
                 <DetailField
                   label="Delivery"
@@ -139,7 +139,7 @@ export default async function OrderDetailPage({
               </div>
             </div>
 
-            <div className="rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
+            <div className="min-w-0 rounded-2xl border border-freshpac-panel bg-orange-50 p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-freshpac-grey">Order controls</p>
 
               <div className="mt-3 grid gap-2">
@@ -153,7 +153,7 @@ export default async function OrderDetailPage({
         </CardContent>
       </Card>
 
-      <div className="sticky top-[86px] z-20 mb-4 overflow-x-auto rounded-2xl border border-freshpac-panel bg-white p-1 shadow-panel">
+      <div className="portal-scroll-panel sticky top-[86px] z-20 mb-4 rounded-2xl border border-freshpac-panel bg-white p-1 shadow-panel">
         <div className="flex min-w-max gap-1">
           {tabs.map((tab) => (
             <a
@@ -175,11 +175,11 @@ export default async function OrderDetailPage({
           action={
             <Button type="button" variant="secondary" size="sm">
               <Truck className="mr-2 size-4" />
-              Change delivery
+              Delivery
             </Button>
           }
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <DetailField label="Status" value={formatOrderStatus(order.status)} />
             <DetailField label="Source" value={formatOrderSource(order.source)} />
             <DetailField label="Delivery method" value={formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)} />
@@ -204,46 +204,87 @@ export default async function OrderDetailPage({
             </Button>
           }
         >
-          <div className="overflow-x-auto">
-            <table className="fp-compact-table min-w-full border-collapse">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Description</th>
-                  <th>Pack</th>
-                  <th>Qty</th>
-                  <th>Source</th>
-                  <th>Ex VAT</th>
-                  <th>VAT</th>
-                  <th>Inc VAT</th>
-                  <th>Total</th>
-                  <th>Lock</th>
-                </tr>
-              </thead>
+          <div className="grid gap-3 md:hidden">
+            {order.lines.map((line) => (
+              <div key={line.id} className="rounded-2xl border border-freshpac-panel bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
+                      {line.productCodeSnapshot}
+                    </p>
+                    <p className="mt-1 break-words font-black text-freshpac-charcoal">{line.descriptionSnapshot}</p>
+                    <p className="text-xs text-freshpac-grey">{line.packSizeSnapshot || "No pack size"}</p>
+                  </div>
 
-              <tbody>
-                {order.lines.map((line) => (
-                  <tr key={line.id}>
-                    <td className="font-bold">{line.productCodeSnapshot}</td>
-                    <td>{line.descriptionSnapshot}</td>
-                    <td>{line.packSizeSnapshot || "None"}</td>
-                    <td>{line.quantity}</td>
-                    <td>
-                      <Badge tone={line.source === "RETAIL_ORDER" || line.source === "STANDING_ORDER" ? "warning" : "neutral"}>
-                        {formatOrderLineSource(line.source)}
-                      </Badge>
-                    </td>
-                    <td>{formatOrderMoney(line.priceExVatPence, priceVisible)}</td>
-                    <td>{formatOrderMoney(line.vatPence, priceVisible)}</td>
-                    <td>{formatOrderMoney(line.priceIncVatPence, priceVisible)}</td>
-                    <td className="font-bold">{formatOrderMoney(line.lineTotalPence, priceVisible)}</td>
-                    <td>{line.lockedFromCustomer ? <Badge tone="warning">Locked</Badge> : <Badge>Editable</Badge>}</td>
+                  {line.lockedFromCustomer ? <Badge tone="warning">Locked</Badge> : <Badge>Editable</Badge>}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-1">
+                  <Badge tone={line.source === "RETAIL_ORDER" || line.source === "STANDING_ORDER" ? "warning" : "neutral"}>
+                    {formatOrderLineSource(line.source)}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <MobileDetail label="Qty" value={String(line.quantity)} />
+                  <MobileDetail label="Ex VAT" value={formatOrderMoney(line.priceExVatPence, priceVisible)} />
+                  <MobileDetail label="VAT" value={formatOrderMoney(line.vatPence, priceVisible)} />
+                  <MobileDetail label="Inc VAT" value={formatOrderMoney(line.priceIncVatPence, priceVisible)} />
+                  <MobileDetail label="Total" value={formatOrderMoney(line.lineTotalPence, priceVisible)} />
+                  <MobileDetail label="Source" value={formatOrderLineSource(line.source)} />
+                </div>
+              </div>
+            ))}
+
+            {!order.lines.length ? (
+              <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                No order lines recorded.
+              </div>
+            ) : null}
+          </div>
+
+          <div className="hidden md:block">
+            <div className="portal-scroll-panel">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Description</th>
+                    <th>Pack</th>
+                    <th>Qty</th>
+                    <th>Source</th>
+                    <th>Ex VAT</th>
+                    <th>VAT</th>
+                    <th>Inc VAT</th>
+                    <th>Total</th>
+                    <th>Lock</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
 
-            {!order.lines.length ? <div className="p-6 text-sm text-freshpac-grey">No order lines recorded.</div> : null}
+                <tbody>
+                  {order.lines.map((line) => (
+                    <tr key={line.id}>
+                      <td className="font-bold">{line.productCodeSnapshot}</td>
+                      <td>{line.descriptionSnapshot}</td>
+                      <td>{line.packSizeSnapshot || "None"}</td>
+                      <td>{line.quantity}</td>
+                      <td>
+                        <Badge tone={line.source === "RETAIL_ORDER" || line.source === "STANDING_ORDER" ? "warning" : "neutral"}>
+                          {formatOrderLineSource(line.source)}
+                        </Badge>
+                      </td>
+                      <td>{formatOrderMoney(line.priceExVatPence, priceVisible)}</td>
+                      <td>{formatOrderMoney(line.vatPence, priceVisible)}</td>
+                      <td>{formatOrderMoney(line.priceIncVatPence, priceVisible)}</td>
+                      <td className="font-bold">{formatOrderMoney(line.lineTotalPence, priceVisible)}</td>
+                      <td>{line.lockedFromCustomer ? <Badge tone="warning">Locked</Badge> : <Badge>Editable</Badge>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {!order.lines.length ? <div className="p-6 text-sm text-freshpac-grey">No order lines recorded.</div> : null}
+            </div>
           </div>
         </ModuleSection>
 
@@ -293,12 +334,12 @@ export default async function OrderDetailPage({
               <input type="hidden" name="reference" value={orderReference} />
               <Button type="submit" size="sm">
                 <Printer className="mr-2 size-4" />
-                Confirm processed
+                Confirm
               </Button>
             </form>
           }
         >
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Button type="button" variant="secondary">
               Order sheet PDF
             </Button>
@@ -351,7 +392,7 @@ export default async function OrderDetailPage({
   );
 }
 
-function AddressCard({ title, lines }: { title: string[] | string; lines: string[] }) {
+function AddressCard({ title, lines }: { title: string; lines: string[] }) {
   return (
     <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
       <p className="font-black text-freshpac-charcoal">{title}</p>
@@ -369,6 +410,15 @@ function RuleCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-freshpac-panel bg-white p-3">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-freshpac-grey">{label}</p>
       <p className="mt-1 text-sm font-bold text-freshpac-charcoal">{value}</p>
+    </div>
+  );
+}
+
+function MobileDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
+      <p className="mt-1 break-words text-xs font-bold text-freshpac-charcoal">{value}</p>
     </div>
   );
 }
