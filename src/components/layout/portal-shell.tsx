@@ -16,7 +16,7 @@ import {
   Wrench
 } from "lucide-react";
 import { logout } from "@/app/login/actions";
-import { formatUserRole, getCurrentUserProfile } from "@/lib/auth/current-user";
+import { canAccessPortalPath, formatUserRole, getCurrentUserProfile } from "@/lib/auth/current-user";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -47,6 +47,7 @@ export async function PortalShell({
   children: ReactNode;
 }) {
   const profile = await getCurrentUserProfile();
+  const visibleNavItems = navItems.filter((item) => canAccessPortalPath(profile?.role, item.href));
 
   return (
     <div className="portal-mobile-safe min-h-screen bg-freshpac-cream">
@@ -81,7 +82,7 @@ export async function PortalShell({
             </div>
 
             <nav className="portal-scroll-panel flex gap-2 p-3 lg:block lg:max-h-[calc(100vh-226px)] lg:space-y-1 lg:overflow-y-auto">
-              {navItems.map((item) => {
+              {visibleNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeHref
                   ? activeHref === item.href || activeHref.startsWith(`${item.href}/`)

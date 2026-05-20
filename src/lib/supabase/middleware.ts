@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { PrismaClient } from "@prisma/client";
+import { canAccessPortalPath, getDefaultPortalPathForRole } from "@/lib/auth/current-user";
+
+const prisma = new PrismaClient();
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
@@ -70,6 +74,28 @@ export async function updateSession(request: NextRequest) {
     redirectUrl.pathname = "/portal";
     redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
+  }
+
+  if (isPortalRoute && user?.email) {
+    const profile = await prisma.userProfile.findUnique({
+      where: {
+        email: user.email.toLowerCase()
+      }
+    });
+
+    if (!profile) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/login";
+      redirectUrl.searchParams.set("error", "profile");
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    if (!canAccessPortalPath(profile.role, pathname)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = getDefaultPortalPathForRole(profile.role);
+      redirectUrl.searchParams.set("error", "forbidden");
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   return response;

@@ -52,15 +52,19 @@ export default function LoginPage({
 
           <CardContent>
             {error === "missing" ? (
-              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">
-                Enter both username and password.
-              </div>
+              <Alert message="Enter both username and password." />
             ) : null}
 
             {error === "invalid" ? (
-              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">
-                Sign-in failed. Check the username and password.
-              </div>
+              <Alert message="Sign-in failed. Check the username and password." />
+            ) : null}
+
+            {error === "profile" ? (
+              <Alert message="You signed in, but no Freshpac user profile exists for this account." />
+            ) : null}
+
+            {error === "forbidden" ? (
+              <Alert message="Your role does not have access to that portal area." />
             ) : null}
 
             <form action={loginWithPassword} className="grid gap-5">
@@ -89,5 +93,13 @@ export default function LoginPage({
         </Card>
       </div>
     </main>
+  );
+}
+
+function Alert({ message }: { message: string }) {
+  return (
+    <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">
+      {message}
+    </div>
   );
 }
