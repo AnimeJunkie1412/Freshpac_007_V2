@@ -20,11 +20,39 @@ import {
   getOrderStatusTone
 } from "@/lib/sales/order-db";
 
-const filters = ["All", "Submitted", "Awaiting Payment", "Paid Submitted", "Processed", "Courier", "Route", "Offline"];
+const statusFilters = [
+  { label: "All", value: "ALL" },
+  { label: "Submitted", value: "SUBMITTED" },
+  { label: "Awaiting Payment", value: "AWAITING_PAYMENT" },
+  { label: "Paid", value: "PAID_SUBMITTED" },
+  { label: "Processed", value: "PROCESSED" },
+  { label: "Needs Print", value: "NEEDS_PRINT" },
+  { label: "Attention", value: "AWAITING_ATTENTION" }
+];
 
-export default async function OrdersPage() {
+const sourceFilters = [
+  { label: "All sources", value: "ALL" },
+  { label: "Customer Portal", value: "CUSTOMER_PORTAL" },
+  { label: "Call List", value: "CALL_LIST" },
+  { label: "Retail", value: "RETAIL_ORDER" },
+  { label: "Offline", value: "OFFLINE_PENDING" }
+];
+
+export default async function OrdersPage({
+  searchParams
+}: {
+  searchParams?: {
+    q?: string;
+    status?: string;
+    source?: string;
+  };
+}) {
+  const q = searchParams?.q || "";
+  const status = searchParams?.status || "ALL";
+  const source = searchParams?.source || "ALL";
+
   const [orders, attentionOrders, stats] = await Promise.all([
-    getOrderListFromDb(),
+    getOrderListFromDb({ q, status, source }),
     getOrderAttentionListFromDb(),
     getOrderStatsFromDb()
   ]);
@@ -54,29 +82,61 @@ export default async function OrdersPage() {
           </CardHeader>
 
           <CardContent>
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+            <form action="/portal/sales/orders" className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+              <input type="hidden" name="status" value={status} />
+              <input type="hidden" name="source" value={source} />
+
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
-                <Input className="pl-9" placeholder="Search FP reference, account, customer, driver, courier..." />
+                <Input
+                  className="pl-9"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search FP reference, account, customer, driver, courier, product..."
+                />
               </label>
 
-              <Button variant="secondary" type="button">
-                <Filter className="mr-2 size-4" />
-                More filters
+              <Button variant="secondary" type="submit">
+                <Search className="mr-2 size-4" />
+                Search
               </Button>
 
-              <Button type="button">
-                <Printer className="mr-2 size-4" />
-                Print selected
-              </Button>
+              <Link
+                href="/portal/sales/orders"
+                className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-4 py-2 text-sm font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+              >
+                Clear
+              </Link>
+            </form>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {statusFilters.map((filter) => {
+                const href = buildOrdersHref({ q, status: filter.value, source });
+
+                return (
+                  <FilterLink
+                    key={filter.value}
+                    href={href}
+                    active={status === filter.value || (!searchParams?.status && filter.value === "ALL")}
+                    label={filter.label}
+                  />
+                );
+              })}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {filters.map((filter, index) => (
-                <Button key={filter} type="button" size="sm" variant={index === 0 ? "primary" : "secondary"}>
-                  {filter}
-                </Button>
-              ))}
+              {sourceFilters.map((filter) => {
+                const href = buildOrdersHref({ q, status, source: filter.value });
+
+                return (
+                  <FilterLink
+                    key={filter.value}
+                    href={href}
+                    active={source === filter.value || (!searchParams?.source && filter.value === "ALL")}
+                    label={filter.label}
+                  />
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -105,7 +165,7 @@ export default async function OrdersPage() {
               <div>
                 <CardTitle>Order list</CardTitle>
                 <CardDescription>
-                  These records now come from Supabase/PostgreSQL through Prisma.
+                  Showing {orders.length} matching order{orders.length === 1 ? "" : "s"}.
                 </CardDescription>
               </div>
               <Badge tone="success">Live database</Badge>
@@ -156,7 +216,7 @@ export default async function OrdersPage() {
 
                 {!orders.length ? (
                   <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                    No orders found. Run <span className="font-bold">npm run prisma:seed</span> or create an order.
+                    No orders match that search.
                   </div>
                 ) : null}
               </div>
@@ -230,7 +290,7 @@ export default async function OrdersPage() {
 
                 {!orders.length ? (
                   <div className="p-6 text-sm text-freshpac-grey">
-                    No orders found. Run <span className="font-bold">npm run prisma:seed</span> or create an order.
+                    No orders match that search.
                   </div>
                 ) : null}
               </div>
@@ -303,6 +363,42 @@ export default async function OrdersPage() {
         </div>
       </div>
     </PortalShell>
+  );
+}
+
+function buildOrdersHref({
+  q,
+  status,
+  source
+}: {
+  q: string;
+  status: string;
+  source: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+  if (source && source !== "ALL") params.set("source", source);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/orders?${query}` : "/portal/sales/orders";
+}
+
+function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center rounded-xl px-3 py-2 text-xs font-black transition ${
+        active
+          ? "bg-freshpac-orange text-freshpac-charcoal"
+          : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
+      }`}
+    >
+      <Filter className="mr-2 size-3" />
+      {label}
+    </Link>
   );
 }
 
