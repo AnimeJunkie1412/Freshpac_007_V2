@@ -1,64 +1,58 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import type { BadgeTone, CustomerStatus } from "@/lib/sales/customers";
+import type { BadgeTone } from "@/lib/sales/customers";
 
-const moneyFormatter = new Intl.NumberFormat("en-GB", {
-  style: "currency",
-  currency: "GBP"
-});
+export type CustomerListFilters = {
+  q?: string;
+  status?: string;
+};
 
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric"
-});
+export function formatDate(date?: Date | string | null) {
+  if (!date) return "Not recorded";
 
-const dateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit"
-});
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date(date));
+}
+
+export function formatDateTime(date?: Date | string | null) {
+  if (!date) return "Not recorded";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(date));
+}
 
 export function formatMoneyFromPence(value?: number | null) {
-  if (typeof value !== "number") {
-    return "£0.00";
-  }
+  const amount = (value || 0) / 100;
 
-  return moneyFormatter.format(value / 100);
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP"
+  }).format(amount);
 }
 
-export function formatDate(value?: Date | string | null) {
-  if (!value) {
-    return "Not recorded";
-  }
-
-  return dateFormatter.format(new Date(value));
-}
-
-export function formatDateTime(value?: Date | string | null) {
-  if (!value) {
-    return "Not recorded";
-  }
-
-  return dateTimeFormatter.format(new Date(value));
-}
-
-export function formatCustomerStatus(status: string): CustomerStatus {
-  const labels: Record<string, CustomerStatus> = {
+export function formatCustomerStatus(status?: string | null) {
+  const labels: Record<string, string> = {
     ACTIVE: "Active",
     ON_HOLD: "On Hold",
     ACTIVE_PREPAYMENT: "Active with Prepayment",
     INACTIVE: "Inactive",
-    ARCHIVED: "Inactive",
-    MARKED_FOR_DELETION: "Inactive",
-    DELETED: "Inactive"
+    ARCHIVED: "Archived",
+    MARKED_FOR_DELETION: "Marked for Deletion",
+    DELETED: "Deleted"
   };
 
-  return labels[status] ?? "Inactive";
+  return status ? labels[status] ?? status : "Unknown";
 }
 
-export function getCustomerStatusTone(status: string): BadgeTone {
+export function getCustomerStatusTone(status?: string | null): BadgeTone {
   const tones: Record<string, BadgeTone> = {
     ACTIVE: "success",
     ON_HOLD: "danger",
@@ -69,7 +63,7 @@ export function getCustomerStatusTone(status: string): BadgeTone {
     DELETED: "danger"
   };
 
-  return tones[status] ?? "neutral";
+  return status ? tones[status] ?? "neutral" : "neutral";
 }
 
 export function formatDeliveryMethod(method?: string | null) {
@@ -79,6 +73,18 @@ export function formatDeliveryMethod(method?: string | null) {
   };
 
   return method ? labels[method] ?? method : "Not set";
+}
+
+export function formatEquipmentStatus(status?: string | null) {
+  const labels: Record<string, string> = {
+    OWNED: "Owned",
+    LOANED: "Loaned",
+    RENTED: "Rented",
+    REMOVED: "Removed",
+    ARCHIVED: "Archived"
+  };
+
+  return status ? labels[status] ?? status : "Unknown";
 }
 
 export function formatOrderStatus(status?: string | null) {
@@ -91,49 +97,186 @@ export function formatOrderStatus(status?: string | null) {
     CANCELLED: "Cancelled"
   };
 
-  return status ? labels[status] ?? status : "Not recorded";
-}
-
-export function formatEquipmentStatus(status?: string | null) {
-  const labels: Record<string, string> = {
-    OWNED: "Owned",
-    RENTED: "Rented",
-    LOANED: "Loaned",
-    TRIAL: "Trial",
-    OBSOLETE: "Obsolete"
-  };
-
-  return status ? labels[status] ?? status : "Not recorded";
+  return status ? labels[status] ?? status : "Unknown";
 }
 
 export function formatProductType(type?: string | null) {
   const labels: Record<string, string> = {
-    NORMAL: "Normal Product",
-    COFFEE: "Coffee Product",
-    RETAIL: "Retail Product"
+    NORMAL: "Normal",
+    COFFEE: "Coffee",
+    RETAIL: "Retail"
   };
 
-  return type ? labels[type] ?? type : "Product";
+  return type ? labels[type] ?? type : "Unknown";
 }
 
-export async function getCustomerListFromDb() {
+export function getAddressLines(
+  addresses: Array<{
+    type: string;
+    lines: string[];
+  }>,
+  type: string
+) {
+  const address = addresses.find((item) => item.type === type);
+
+  if (!address || !address.lines.length) {
+    return ["Not recorded"];
+  }
+
+  return address.lines;
+}
+
+export function buildCustomerFlags(customer: {
+  status: string;
+  priceVisibility: boolean;
+  onCallList: boolean;
+}) {
+  const flags: Array<{
+    label: string;
+    description: string;
+    tone: BadgeTone;
+  }> = [];
+
+  if (customer.status === "ON_HOLD") {
+    flags.push({
+      label: "On Hold",
+      description: "Account should not process new orders until reviewed.",
+      tone: "danger"
+    });
+  }
+
+  if (customer.status === "ACTIVE_PREPAYMENT") {
+    flags.push({
+      label: "Prepayment",
+      description: "Payment should be confirmed externally before processing.",
+      tone: "warning"
+    });
+  }
+
+  if (!customer.priceVisibility) {
+    flags.push({
+      label: "Prices Hidden",
+      description: "Customer-facing documents should show Delivery Note Needed.",
+      tone: "warning"
+    });
+  }
+
+  if (customer.onCallList) {
+    flags.push({
+      label: "Call List",
+      description: "Customer is included in weekly telesales contact.",
+      tone: "info"
+    });
+  }
+
+  if (!flags.length) {
+    flags.push({
+      label: "Good Standing",
+      description: "No special handling flags currently apply.",
+      tone: "success"
+    });
+  }
+
+  return flags;
+}
+
+function buildCustomerWhere(filters?: CustomerListFilters) {
+  const q = filters?.q?.trim();
+  const status = filters?.status?.trim();
+
+  const conditions: Prisma.CustomerAccountWhereInput[] = [];
+
+  if (q) {
+    conditions.push({
+      OR: [
+        { accountNumber: { contains: q, mode: "insensitive" } },
+        { siteName: { contains: q, mode: "insensitive" } },
+        { legalName: { contains: q, mode: "insensitive" } },
+        { driverOrCourier: { contains: q, mode: "insensitive" } },
+        { assignedSalesRep: { contains: q, mode: "insensitive" } },
+        {
+          contacts: {
+            some: {
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { role: { contains: q, mode: "insensitive" } },
+                { phone: { contains: q, mode: "insensitive" } },
+                { email: { contains: q, mode: "insensitive" } }
+              ]
+            }
+          }
+        },
+        {
+          addresses: {
+            some: {
+              OR: [
+                { label: { contains: q, mode: "insensitive" } },
+                { postcode: { contains: q, mode: "insensitive" } },
+                { lines: { has: q } }
+              ]
+            }
+          }
+        },
+        {
+          notes: {
+            some: {
+              note: { contains: q, mode: "insensitive" }
+            }
+          }
+        },
+        {
+          equipment: {
+            some: {
+              OR: [
+                { description: { contains: q, mode: "insensitive" } },
+                { makeModel: { contains: q, mode: "insensitive" } },
+                { serialNumber: { contains: q, mode: "insensitive" } }
+              ]
+            }
+          }
+        }
+      ]
+    });
+  }
+
+  if (status && status !== "ALL") {
+    if (status === "HIDDEN_PRICES") {
+      conditions.push({ priceVisibility: false });
+    } else if (status === "CALL_LIST") {
+      conditions.push({ onCallList: true });
+    } else {
+      conditions.push({ status: status as any });
+    }
+  }
+
+  if (!conditions.length) {
+    return {};
+  }
+
+  return {
+    AND: conditions
+  };
+}
+
+export async function getCustomerListFromDb(filters?: CustomerListFilters) {
   return prisma.customerAccount.findMany({
-    orderBy: [{ siteName: "asc" }],
+    where: buildCustomerWhere(filters),
+    orderBy: {
+      siteName: "asc"
+    },
     include: {
       contacts: {
         orderBy: [{ isPrimary: "desc" }, { name: "asc" }]
       },
-      addresses: true,
       orders: {
-        orderBy: [{ createdAt: "desc" }],
-        take: 1
-      },
-      productAccess: {
+        orderBy: {
+          createdAt: "desc"
+        },
+        take: 1,
         include: {
-          product: true
+          lines: true
         }
-      },
-      equipment: true
+      }
     }
   });
 }
@@ -185,13 +328,9 @@ export async function getCustomerByAccountFromDb(accountNumber: string) {
     },
     include: {
       parentAccount: true,
-      childAccounts: {
-        orderBy: {
-          siteName: "asc"
-        }
-      },
+      childAccounts: true,
       addresses: {
-        orderBy: [{ type: "asc" }, { isPrimary: "desc" }]
+        orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }]
       },
       contacts: {
         orderBy: [{ isPrimary: "desc" }, { name: "asc" }]
@@ -204,17 +343,12 @@ export async function getCustomerByAccountFromDb(accountNumber: string) {
           createdByUser: true
         }
       },
-      equipment: {
-        orderBy: {
-          createdAt: "desc"
-        }
-      },
       prices: {
         include: {
           product: true
         },
         orderBy: {
-          updatedAt: "desc"
+          createdAt: "desc"
         }
       },
       productAccess: {
@@ -225,16 +359,17 @@ export async function getCustomerByAccountFromDb(accountNumber: string) {
           createdAt: "desc"
         }
       },
+      equipment: {
+        orderBy: {
+          createdAt: "desc"
+        }
+      },
       orders: {
         orderBy: {
           createdAt: "desc"
         },
         include: {
-          lines: {
-            orderBy: {
-              createdAt: "asc"
-            }
-          }
+          lines: true
         }
       },
       engineerJobs: {
@@ -242,110 +377,9 @@ export async function getCustomerByAccountFromDb(accountNumber: string) {
           createdAt: "desc"
         },
         include: {
-          machineSheets: true,
           partsRequests: true
         }
-      },
-      callListEntries: {
-        orderBy: {
-          weekStart: "desc"
-        },
-        take: 5
       }
     }
   });
-}
-
-export function getAddressLines(
-  addresses: Array<{
-    type: string;
-    label: string | null;
-    lines: string[];
-    postcode: string | null;
-  }>,
-  type: string
-) {
-  const address = addresses.find((item) => item.type === type);
-
-  if (!address) {
-    return ["Not recorded"];
-  }
-
-  return address.lines.length ? address.lines : ["Not recorded"];
-}
-
-export function buildCustomerFlags(customer: {
-  status: string;
-  priceVisibility: boolean;
-  onCallList: boolean;
-  deliveryMethod: string;
-  productAccess: Array<{
-    product: {
-      productType: string;
-    };
-  }>;
-}) {
-  const flags: Array<{
-    label: string;
-    tone: BadgeTone;
-    description: string;
-  }> = [];
-
-  if (customer.status === "ON_HOLD") {
-    flags.push({
-      label: "On hold",
-      tone: "danger",
-      description: "Customer can build basket but cannot submit orders."
-    });
-  }
-
-  if (customer.status === "ACTIVE_PREPAYMENT") {
-    flags.push({
-      label: "Prepayment",
-      tone: "warning",
-      description: "Orders become Awaiting Payment until Freshpac confirms external payment."
-    });
-  }
-
-  if (!customer.priceVisibility) {
-    flags.push({
-      label: "Prices hidden",
-      tone: "warning",
-      description: "Customer-facing documents should show Delivery Note Needed."
-    });
-  }
-
-  if (customer.onCallList) {
-    flags.push({
-      label: "Call list",
-      tone: "info",
-      description: "Customer appears on the weekly telesales list."
-    });
-  }
-
-  if (customer.deliveryMethod === "COURIER") {
-    flags.push({
-      label: "Courier",
-      tone: "info",
-      description: "Courier minimum and carriage rules apply."
-    });
-  }
-
-  if (customer.productAccess.some((access) => access.product.productType === "COFFEE")) {
-    flags.push({
-      label: "Coffee assigned",
-      tone: "success",
-      description: "Restricted coffee products are assigned to this account."
-    });
-  }
-
-  if (!flags.length) {
-    flags.push({
-      label: "No warnings",
-      tone: "success",
-      description: "No account warnings found."
-    });
-  }
-
-  return flags;
 }

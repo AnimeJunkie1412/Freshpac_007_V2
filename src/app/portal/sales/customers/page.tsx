@@ -17,7 +17,14 @@ import {
   getCustomerStatusTone
 } from "@/lib/sales/customer-db";
 
-const statusFilters = ["All", "Active", "On Hold", "Prepayment", "Prices hidden", "Call list"];
+const statusFilters = [
+  { label: "All", value: "ALL" },
+  { label: "Active", value: "ACTIVE" },
+  { label: "On Hold", value: "ON_HOLD" },
+  { label: "Prepayment", value: "ACTIVE_PREPAYMENT" },
+  { label: "Prices hidden", value: "HIDDEN_PRICES" },
+  { label: "Call list", value: "CALL_LIST" }
+];
 
 const customerSearchHints = [
   "Account number",
@@ -31,8 +38,21 @@ const customerSearchHints = [
   "Equipment serial"
 ];
 
-export default async function CustomersPage() {
-  const [customers, stats] = await Promise.all([getCustomerListFromDb(), getCustomerStatsFromDb()]);
+export default async function CustomersPage({
+  searchParams
+}: {
+  searchParams?: {
+    q?: string;
+    status?: string;
+  };
+}) {
+  const q = searchParams?.q || "";
+  const status = searchParams?.status || "ALL";
+
+  const [customers, stats] = await Promise.all([
+    getCustomerListFromDb({ q, status }),
+    getCustomerStatsFromDb()
+  ]);
 
   return (
     <PortalShell
@@ -58,24 +78,56 @@ export default async function CustomersPage() {
           </CardHeader>
 
           <CardContent>
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <form action="/portal/sales/customers" className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+              <input type="hidden" name="status" value={status} />
+
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
-                <Input className="pl-9" placeholder="Search account, site, address, contact, note, email, serial number..." />
+                <Input
+                  className="pl-9"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search account, site, address, contact, note, email, serial number..."
+                />
               </label>
 
-              <Button variant="secondary" type="button">
-                <Filter className="mr-2 size-4" />
-                More filters
+              <Button variant="secondary" type="submit">
+                <Search className="mr-2 size-4" />
+                Search
               </Button>
-            </div>
+
+              <Link
+                href="/portal/sales/customers"
+                className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-4 py-2 text-sm font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+              >
+                Clear
+              </Link>
+            </form>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {statusFilters.map((filter, index) => (
-                <Button key={filter} type="button" size="sm" variant={index === 0 ? "primary" : "secondary"}>
-                  {filter}
-                </Button>
-              ))}
+              {statusFilters.map((filter) => {
+                const href =
+                  filter.value === "ALL"
+                    ? q
+                      ? `/portal/sales/customers?q=${encodeURIComponent(q)}`
+                      : "/portal/sales/customers"
+                    : `/portal/sales/customers?status=${filter.value}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+
+                return (
+                  <Link
+                    key={filter.value}
+                    href={href}
+                    className={`inline-flex items-center rounded-xl px-3 py-2 text-xs font-black transition ${
+                      status === filter.value || (!searchParams?.status && filter.value === "ALL")
+                        ? "bg-freshpac-orange text-freshpac-charcoal"
+                        : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
+                    }`}
+                  >
+                    <Filter className="mr-2 size-3" />
+                    {filter.label}
+                  </Link>
+                );
+              })}
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -110,7 +162,7 @@ export default async function CustomersPage() {
               <div>
                 <CardTitle>Customer list</CardTitle>
                 <CardDescription>
-                  These records now come from Supabase/PostgreSQL through Prisma.
+                  Showing {customers.length} matching customer{customers.length === 1 ? "" : "s"}.
                 </CardDescription>
               </div>
               <Badge tone="success">Live database</Badge>
@@ -172,7 +224,7 @@ export default async function CustomersPage() {
 
                 {!customers.length ? (
                   <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                    No customers found. Run <span className="font-bold">npm run prisma:seed</span> or create a customer.
+                    No customers match that search.
                   </div>
                 ) : null}
               </div>
@@ -249,7 +301,7 @@ export default async function CustomersPage() {
 
                 {!customers.length ? (
                   <div className="p-6 text-sm text-freshpac-grey">
-                    No customers found. Run <span className="font-bold">npm run prisma:seed</span> or create a customer.
+                    No customers match that search.
                   </div>
                 ) : null}
               </div>
@@ -302,7 +354,7 @@ export default async function CustomersPage() {
 
               {!customers.some((customer) => customer.status !== "ACTIVE" || !customer.priceVisibility) ? (
                 <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                  No priority accounts found.
+                  No priority accounts found in this result set.
                 </p>
               ) : null}
             </CardContent>
@@ -311,7 +363,7 @@ export default async function CustomersPage() {
           <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Database status</CardTitle>
-              <CardDescription>The customer module is now reading real records.</CardDescription>
+              <CardDescription>The customer module is now reading filtered live records.</CardDescription>
             </CardHeader>
 
             <CardContent className="grid gap-2">
