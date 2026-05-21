@@ -14,10 +14,33 @@ import {
   getTradeRequestStatusTone
 } from "@/lib/sales/trade-requests-db";
 
-const filters = ["All", "New", "Contacted", "Assigned", "Accepted", "Rejected", "Archived"];
+type TradeRequestRow = Awaited<ReturnType<typeof getTradeRequestsFromDb>>[number];
 
-export default async function TradeRequestsPage() {
-  const [requests, stats] = await Promise.all([getTradeRequestsFromDb(), getTradeRequestStatsFromDb()]);
+const statusFilters = [
+  { label: "All", value: "ALL" },
+  { label: "New", value: "NEW" },
+  { label: "Contacted", value: "CONTACTED" },
+  { label: "Assigned", value: "ASSIGNED" },
+  { label: "Accepted", value: "ACCEPTED" },
+  { label: "Rejected", value: "REJECTED" },
+  { label: "Archived", value: "ARCHIVED" }
+];
+
+export default async function TradeRequestsPage({
+  searchParams
+}: {
+  searchParams?: {
+    q?: string;
+    status?: string;
+  };
+}) {
+  const q = searchParams?.q || "";
+  const status = searchParams?.status || "ALL";
+
+  const [requests, stats] = await Promise.all([
+    getTradeRequestsFromDb({ q, status }),
+    getTradeRequestStatsFromDb()
+  ]);
 
   return (
     <PortalShell
@@ -30,28 +53,45 @@ export default async function TradeRequestsPage() {
           <CardHeader>
             <CardTitle>Request search</CardTitle>
             <CardDescription>
-              Review public trade enquiries, assign to sales reps and manually create customer accounts when accepted.
+              Search public trade enquiries by business, contact, phone, email, assigned rep, notes or linked customer.
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <form action="/portal/sales/trade-requests" className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+              <input type="hidden" name="status" value={status} />
+
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
-                <Input className="pl-9" placeholder="Search business, name, phone, email, notes..." />
+                <Input
+                  className="pl-9"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search business, name, phone, email, notes, rep..."
+                />
               </label>
 
-              <Button variant="secondary" type="button">
-                <Filter className="mr-2 size-4" />
-                More filters
+              <Button variant="secondary" type="submit">
+                <Search className="mr-2 size-4" />
+                Search
               </Button>
-            </div>
+
+              <Link
+                href="/portal/sales/trade-requests"
+                className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-4 py-2 text-sm font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+              >
+                Clear
+              </Link>
+            </form>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {filters.map((filter, index) => (
-                <Button key={filter} type="button" size="sm" variant={index === 0 ? "primary" : "secondary"}>
-                  {filter}
-                </Button>
+              {statusFilters.map((filter) => (
+                <FilterLink
+                  key={filter.value}
+                  href={buildTradeRequestsHref({ q, status: filter.value })}
+                  active={status === filter.value || (!searchParams?.status && filter.value === "ALL")}
+                  label={filter.label}
+                />
               ))}
             </div>
           </CardContent>
@@ -80,7 +120,7 @@ export default async function TradeRequestsPage() {
             <div>
               <CardTitle>Request list</CardTitle>
               <CardDescription>
-                Requests do not automatically create customer accounts. Freshpac reviews and creates accounts manually.
+                Showing {requests.length} matching trade request{requests.length === 1 ? "" : "s"}.
               </CardDescription>
             </div>
             <Badge tone="success">Live database</Badge>
@@ -90,7 +130,7 @@ export default async function TradeRequestsPage() {
         <CardContent className="p-0">
           <div className="block p-3 md:hidden">
             <div className="grid gap-3">
-              {requests.map((request) => (
+              {requests.map((request: TradeRequestRow) => (
                 <Link
                   key={request.id}
                   href={`/portal/sales/trade-requests/${request.id}`}
@@ -131,7 +171,7 @@ export default async function TradeRequestsPage() {
 
               {!requests.length ? (
                 <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                  No trade requests found yet. The public form will create records here once wired.
+                  No trade requests match that search.
                 </div>
               ) : null}
             </div>
@@ -153,7 +193,7 @@ export default async function TradeRequestsPage() {
                 </thead>
 
                 <tbody>
-                  {requests.map((request) => (
+                  {requests.map((request: TradeRequestRow) => (
                     <tr key={request.id}>
                       <td>
                         <Link
@@ -187,7 +227,7 @@ export default async function TradeRequestsPage() {
 
               {!requests.length ? (
                 <div className="p-6 text-sm text-freshpac-grey">
-                  No trade requests found yet. The public form will create records here once wired.
+                  No trade requests match that search.
                 </div>
               ) : null}
             </div>
@@ -195,6 +235,33 @@ export default async function TradeRequestsPage() {
         </CardContent>
       </Card>
     </PortalShell>
+  );
+}
+
+function buildTradeRequestsHref({ q, status }: { q: string; status: string }) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/trade-requests?${query}` : "/portal/sales/trade-requests";
+}
+
+function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center rounded-xl px-3 py-2 text-xs font-black transition ${
+        active
+          ? "bg-freshpac-orange text-freshpac-charcoal"
+          : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
+      }`}
+    >
+      <Filter className="mr-2 size-3" />
+      {label}
+    </Link>
   );
 }
 
