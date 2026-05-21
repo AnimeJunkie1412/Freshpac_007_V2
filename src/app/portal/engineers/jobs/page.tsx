@@ -22,10 +22,60 @@ import {
   getSyncStatusTone
 } from "@/lib/engineers/job-db";
 
-const filters = ["All", "New", "Assigned", "In Progress", "Follow-up", "Completed", "Chargeable", "Pending sync"];
+const statusFilters = [
+  { label: "All", value: "ALL" },
+  { label: "Open", value: "OPEN" },
+  { label: "New", value: "NEW" },
+  { label: "Assigned", value: "ASSIGNED" },
+  { label: "In Progress", value: "IN_PROGRESS" },
+  { label: "Follow-up", value: "FOLLOW_UP_REQUIRED" },
+  { label: "Completed", value: "COMPLETED" }
+];
 
-export default async function EngineerJobsPage() {
-  const [jobs, stats] = await Promise.all([getEngineerJobListFromDb(), getEngineerJobStatsFromDb()]);
+const priorityFilters = [
+  { label: "All priority", value: "ALL" },
+  { label: "Low", value: "LOW" },
+  { label: "Normal", value: "NORMAL" },
+  { label: "High", value: "HIGH" },
+  { label: "Urgent", value: "URGENT" }
+];
+
+const syncFilters = [
+  { label: "All sync", value: "ALL" },
+  { label: "Online", value: "ONLINE" },
+  { label: "Pending sync", value: "PENDING_SYNC" },
+  { label: "Offline pending", value: "OFFLINE_PENDING" },
+  { label: "Conflict", value: "CONFLICT" }
+];
+
+const chargeableFilters = [
+  { label: "All chargeable", value: "ALL" },
+  { label: "To review", value: "TO_REVIEW" },
+  { label: "Yes", value: "YES" },
+  { label: "No", value: "NO" }
+];
+
+export default async function EngineerJobsPage({
+  searchParams
+}: {
+  searchParams?: {
+    q?: string;
+    status?: string;
+    priority?: string;
+    sync?: string;
+    chargeable?: string;
+  };
+}) {
+  const q = searchParams?.q || "";
+  const status = searchParams?.status || "ALL";
+  const priority = searchParams?.priority || "ALL";
+  const sync = searchParams?.sync || "ALL";
+  const chargeable = searchParams?.chargeable || "ALL";
+
+  const [jobs, stats] = await Promise.all([
+    getEngineerJobListFromDb({ q, status, priority, sync, chargeable }),
+    getEngineerJobStatsFromDb()
+  ]);
 
   return (
     <PortalShell
@@ -40,7 +90,7 @@ export default async function EngineerJobsPage() {
               <div>
                 <CardTitle>Job search</CardTitle>
                 <CardDescription>
-                  Search by job reference, customer, account, machine serial, engineer, fault, type or status.
+                  Search by job reference, customer, account, machine serial, engineer, fault, parts or status.
                 </CardDescription>
               </div>
 
@@ -52,23 +102,76 @@ export default async function EngineerJobsPage() {
           </CardHeader>
 
           <CardContent>
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <form action="/portal/engineers/jobs" className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+              <input type="hidden" name="status" value={status} />
+              <input type="hidden" name="priority" value={priority} />
+              <input type="hidden" name="sync" value={sync} />
+              <input type="hidden" name="chargeable" value={chargeable} />
+
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
-                <Input className="pl-9" placeholder="Search job, customer, engineer, machine serial, fault..." />
+                <Input
+                  className="pl-9"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search job, customer, engineer, machine serial, fault, parts..."
+                />
               </label>
 
-              <Button variant="secondary" type="button">
-                <Filter className="mr-2 size-4" />
-                More filters
+              <Button variant="secondary" type="submit">
+                <Search className="mr-2 size-4" />
+                Search
               </Button>
+
+              <Link
+                href="/portal/engineers/jobs"
+                className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-4 py-2 text-sm font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+              >
+                Clear
+              </Link>
+            </form>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {statusFilters.map((filter) => (
+                <FilterLink
+                  key={filter.value}
+                  href={buildEngineerJobsHref({ q, status: filter.value, priority, sync, chargeable })}
+                  active={status === filter.value || (!searchParams?.status && filter.value === "ALL")}
+                  label={filter.label}
+                />
+              ))}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {filters.map((filter, index) => (
-                <Button key={filter} type="button" size="sm" variant={index === 0 ? "primary" : "secondary"}>
-                  {filter}
-                </Button>
+              {priorityFilters.map((filter) => (
+                <FilterLink
+                  key={filter.value}
+                  href={buildEngineerJobsHref({ q, status, priority: filter.value, sync, chargeable })}
+                  active={priority === filter.value || (!searchParams?.priority && filter.value === "ALL")}
+                  label={filter.label}
+                />
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {syncFilters.map((filter) => (
+                <FilterLink
+                  key={filter.value}
+                  href={buildEngineerJobsHref({ q, status, priority, sync: filter.value, chargeable })}
+                  active={sync === filter.value || (!searchParams?.sync && filter.value === "ALL")}
+                  label={filter.label}
+                />
+              ))}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {chargeableFilters.map((filter) => (
+                <FilterLink
+                  key={filter.value}
+                  href={buildEngineerJobsHref({ q, status, priority, sync, chargeable: filter.value })}
+                  active={chargeable === filter.value || (!searchParams?.chargeable && filter.value === "ALL")}
+                  label={filter.label}
+                />
               ))}
             </div>
           </CardContent>
@@ -97,7 +200,7 @@ export default async function EngineerJobsPage() {
             <div>
               <CardTitle>Job list</CardTitle>
               <CardDescription>
-                These records now come from Supabase/PostgreSQL through Prisma.
+                Showing {jobs.length} matching engineer job{jobs.length === 1 ? "" : "s"}.
               </CardDescription>
             </div>
             <Badge tone="success">Live database</Badge>
@@ -156,7 +259,7 @@ export default async function EngineerJobsPage() {
 
               {!jobs.length ? (
                 <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                  No engineer jobs found. Run <span className="font-bold">npm run prisma:seed</span> or create a job.
+                  No engineer jobs match that search.
                 </div>
               ) : null}
             </div>
@@ -226,7 +329,7 @@ export default async function EngineerJobsPage() {
 
               {!jobs.length ? (
                 <div className="p-6 text-sm text-freshpac-grey">
-                  No engineer jobs found. Run <span className="font-bold">npm run prisma:seed</span> or create a job.
+                  No engineer jobs match that search.
                 </div>
               ) : null}
             </div>
@@ -234,6 +337,48 @@ export default async function EngineerJobsPage() {
         </CardContent>
       </Card>
     </PortalShell>
+  );
+}
+
+function buildEngineerJobsHref({
+  q,
+  status,
+  priority,
+  sync,
+  chargeable
+}: {
+  q: string;
+  status: string;
+  priority: string;
+  sync: string;
+  chargeable: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+  if (priority && priority !== "ALL") params.set("priority", priority);
+  if (sync && sync !== "ALL") params.set("sync", sync);
+  if (chargeable && chargeable !== "ALL") params.set("chargeable", chargeable);
+
+  const query = params.toString();
+
+  return query ? `/portal/engineers/jobs?${query}` : "/portal/engineers/jobs";
+}
+
+function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center rounded-xl px-3 py-2 text-xs font-black transition ${
+        active
+          ? "bg-freshpac-orange text-freshpac-charcoal"
+          : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
+      }`}
+    >
+      <Filter className="mr-2 size-3" />
+      {label}
+    </Link>
   );
 }
 
