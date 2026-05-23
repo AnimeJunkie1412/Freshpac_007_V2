@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   Activity,
@@ -29,11 +30,42 @@ import {
   prettifyAuditLabel
 } from "@/lib/sales/audit-db";
 
-const filters = ["All", "Customers", "Products", "Orders", "Engineers", "Prices", "Rollover", "Sync", "Deletion"];
+type AuditLogRow = Awaited<ReturnType<typeof getAuditLogEntriesFromDb>>[number];
+type CriticalAuditLogRow = Awaited<ReturnType<typeof getRecentCriticalAuditEntriesFromDb>>[number];
 
-export default async function AuditLogPage() {
+const entityFilters = [
+  { label: "All", value: "ALL" },
+  { label: "Customers", value: "CUSTOMER" },
+  { label: "Products", value: "PRODUCT" },
+  { label: "Orders", value: "ORDER" },
+  { label: "Engineers", value: "ENGINEER" },
+  { label: "Sync", value: "SYNC" }
+];
+
+const retentionFilters = [
+  { label: "All retention", value: "ALL" },
+  { label: "Security 60 days", value: "SECURITY_60_DAYS" },
+  { label: "Business permanent", value: "BUSINESS_PERMANENT" },
+  { label: "Order permanent", value: "ORDER_PERMANENT" },
+  { label: "Engineer permanent", value: "ENGINEER_PERMANENT" },
+  { label: "Financial permanent", value: "FINANCIAL_PERMANENT" }
+];
+
+export default async function AuditLogPage({
+  searchParams
+}: {
+  searchParams?: {
+    q?: string;
+    entity?: string;
+    retention?: string;
+  };
+}) {
+  const q = searchParams?.q || "";
+  const entity = searchParams?.entity || "ALL";
+  const retention = searchParams?.retention || "ALL";
+
   const [entries, criticalEntries, stats] = await Promise.all([
-    getAuditLogEntriesFromDb(),
+    getAuditLogEntriesFromDb({ q, entity, retention }),
     getRecentCriticalAuditEntriesFromDb(),
     getAuditStatsFromDb()
   ]);
@@ -49,28 +81,57 @@ export default async function AuditLogPage() {
           <CardHeader>
             <CardTitle>Audit search</CardTitle>
             <CardDescription>
-              Review important system actions, customer changes, order processing, pricing changes, engineer jobs, sync events and deletion activity.
+              Search system actions, customer changes, order processing, pricing changes, engineer jobs, sync events and deletion activity.
             </CardDescription>
           </CardHeader>
 
           <CardContent>
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <form action="/portal/sales/audit-log" className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+              <input type="hidden" name="entity" value={entity} />
+              <input type="hidden" name="retention" value={retention} />
+
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
-                <Input className="pl-9" placeholder="Search action, entity, user, note..." />
+                <Input
+                  className="pl-9"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search action, entity, user, note..."
+                />
               </label>
 
-              <Button variant="secondary" type="button">
-                <Filter className="mr-2 size-4" />
-                More filters
+              <Button variant="secondary" type="submit">
+                <Search className="mr-2 size-4" />
+                Search
               </Button>
+
+              <Link
+                href="/portal/sales/audit-log"
+                className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-4 py-2 text-sm font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+              >
+                Clear
+              </Link>
+            </form>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {entityFilters.map((filter) => (
+                <FilterLink
+                  key={filter.value}
+                  href={buildAuditHref({ q, entity: filter.value, retention })}
+                  active={entity === filter.value || (!searchParams?.entity && filter.value === "ALL")}
+                  label={filter.label}
+                />
+              ))}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {filters.map((filter, index) => (
-                <Button key={filter} type="button" size="sm" variant={index === 0 ? "primary" : "secondary"}>
-                  {filter}
-                </Button>
+              {retentionFilters.map((filter) => (
+                <FilterLink
+                  key={filter.value}
+                  href={buildAuditHref({ q, entity, retention: filter.value })}
+                  active={retention === filter.value || (!searchParams?.retention && filter.value === "ALL")}
+                  label={filter.label}
+                />
               ))}
             </div>
           </CardContent>
@@ -102,7 +163,7 @@ export default async function AuditLogPage() {
               <div>
                 <CardTitle>Audit entries</CardTitle>
                 <CardDescription>
-                  The latest 100 audit events. Business-critical records should stay separate from short-term security logs.
+                  Showing {entries.length} matching audit entr{entries.length === 1 ? "y" : "ies"}. Latest 100 results shown.
                 </CardDescription>
               </div>
               <Badge tone="success">Live database</Badge>
@@ -112,7 +173,7 @@ export default async function AuditLogPage() {
           <CardContent className="p-0">
             <div className="block p-3 md:hidden">
               <div className="grid gap-3">
-                {entries.map((entry) => (
+                {entries.map((entry: AuditLogRow) => (
                   <div key={entry.id} className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -136,7 +197,7 @@ export default async function AuditLogPage() {
                       <MobileDetail label="Entity ID" value={entry.entityId || "None"} />
                       <MobileDetail label="User" value={entry.user?.fullName || "System"} />
                       <MobileDetail label="Retention" value={formatRetentionClass(entry.retentionClass)} />
-                      <MobileDetail label="Class" value={entry.retentionClass} />
+                      <MobileDetail label="Class" value={entry.retentionClass || "Not set"} />
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-1">
@@ -153,7 +214,7 @@ export default async function AuditLogPage() {
 
                 {!entries.length ? (
                   <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                    No audit entries found. Seed data should create one starter audit event.
+                    No audit entries match that search.
                   </div>
                 ) : null}
               </div>
@@ -175,7 +236,7 @@ export default async function AuditLogPage() {
                   </thead>
 
                   <tbody>
-                    {entries.map((entry) => (
+                    {entries.map((entry: AuditLogRow) => (
                       <tr key={entry.id}>
                         <td>{formatDateTime(entry.createdAt)}</td>
                         <td>
@@ -201,7 +262,7 @@ export default async function AuditLogPage() {
 
                 {!entries.length ? (
                   <div className="p-6 text-sm text-freshpac-grey">
-                    No audit entries found. Seed data should create one starter audit event.
+                    No audit entries match that search.
                   </div>
                 ) : null}
               </div>
@@ -217,7 +278,7 @@ export default async function AuditLogPage() {
             </CardHeader>
 
             <CardContent className="space-y-3">
-              {criticalEntries.map((entry) => (
+              {criticalEntries.map((entry: CriticalAuditLogRow) => (
                 <div key={entry.id} className="rounded-2xl border border-freshpac-panel bg-white p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -276,6 +337,42 @@ export default async function AuditLogPage() {
         </div>
       </div>
     </PortalShell>
+  );
+}
+
+function buildAuditHref({
+  q,
+  entity,
+  retention
+}: {
+  q: string;
+  entity: string;
+  retention: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (entity && entity !== "ALL") params.set("entity", entity);
+  if (retention && retention !== "ALL") params.set("retention", retention);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/audit-log?${query}` : "/portal/sales/audit-log";
+}
+
+function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center rounded-xl px-3 py-2 text-xs font-black transition ${
+        active
+          ? "bg-freshpac-orange text-freshpac-charcoal"
+          : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
+      }`}
+    >
+      <Filter className="mr-2 size-3" />
+      {label}
+    </Link>
   );
 }
 
