@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote, ClipboardList, Filter, ListChecks, Plus, Printer, Search, Truck, WifiOff } from "lucide-react";
+import { Banknote, ClipboardList, Coffee, Filter, ListChecks, Plus, Printer, Search, ShoppingBag, Truck, WifiOff } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -52,6 +52,8 @@ export default async function OrdersPage({
   const source = searchParams?.source || "ALL";
   const batchPrintHref = buildBatchPrintHref({ q, status, source });
   const pickListHref = buildPickListHref({ q, status, source });
+  const coffeePickListHref = buildCoffeePickListHref({ q, status, source });
+  const retailPickListHref = buildRetailPickListHref({ q, status, source });
 
   const [orders, attentionOrders, stats] = await Promise.all([
     getOrderListFromDb({ q, status, source }),
@@ -369,13 +371,15 @@ export default async function OrdersPage({
                 Print general pick list
               </LinkButton>
 
-              <Button type="button" variant="secondary">
+              <LinkButton href={coffeePickListHref} variant="secondary">
+                <Coffee className="mr-2 size-4" />
                 Print coffee pick list
-              </Button>
+              </LinkButton>
 
-              <Button type="button" variant="secondary">
+              <LinkButton href={retailPickListHref} variant="secondary">
+                <ShoppingBag className="mr-2 size-4" />
                 Print retail pick list
-              </Button>
+              </LinkButton>
             </CardContent>
           </Card>
 
@@ -485,6 +489,46 @@ function buildPickListHref({
   const query = params.toString();
 
   return query ? `/portal/sales/orders/pick-list?${query}` : "/portal/sales/orders/pick-list?status=NEEDS_PRINT";
+}
+
+function buildCoffeePickListHref({
+  q,
+  status,
+  source
+}: {
+  q: string;
+  status: string;
+  source: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+  if (source && source !== "ALL") params.set("source", source);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/orders/pick-list/coffee?${query}` : "/portal/sales/orders/pick-list/coffee?status=NEEDS_PRINT";
+}
+
+function buildRetailPickListHref({
+  q,
+  status,
+  source
+}: {
+  q: string;
+  status: string;
+  source: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+  if (source && source !== "ALL") params.set("source", source);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/orders/pick-list/retail?${query}` : "/portal/sales/orders/pick-list/retail?status=NEEDS_PRINT";
 }
 
 function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {

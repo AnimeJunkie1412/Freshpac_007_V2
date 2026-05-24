@@ -6,7 +6,7 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function PickListPrintPage({
+export default async function RetailPickListPrintPage({
   searchParams
 }: {
   searchParams?: PickListSearchParams;
@@ -14,9 +14,9 @@ export default async function PickListPrintPage({
   return (
     <OrderPickListPrintView
       searchParams={searchParams}
-      kind="GENERAL"
-      title="General Product Pick List"
-      description="Combined product quantities from the current filtered order list."
+      kind="RETAIL"
+      title="Retail Pick List"
+      description="Retail-order product quantities from the current filtered order list."
     />
   );
 }
