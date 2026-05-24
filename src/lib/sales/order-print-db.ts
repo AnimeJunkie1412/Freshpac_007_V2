@@ -7,7 +7,7 @@ export type PrintableOrderFilters = {
   source?: string;
 };
 
-function buildPrintableOrderWhere(filters?: PrintableOrderFilters): Prisma.OrderWhereInput {
+export function buildPrintableOrderWhere(filters?: PrintableOrderFilters): Prisma.OrderWhereInput {
   const q = filters?.q?.trim();
   const status = filters?.status?.trim();
   const source = filters?.source?.trim();
@@ -86,6 +86,21 @@ function buildPrintableOrderWhere(filters?: PrintableOrderFilters): Prisma.Order
   };
 }
 
+export function buildProcessablePrintedOrderWhere(filters?: PrintableOrderFilters): Prisma.OrderWhereInput {
+  const printableWhere = buildPrintableOrderWhere(filters);
+
+  return {
+    AND: [
+      printableWhere,
+      {
+        status: {
+          in: ["SUBMITTED", "PAID_SUBMITTED"]
+        }
+      }
+    ]
+  };
+}
+
 export async function getPrintableOrderListFromDb(filters?: PrintableOrderFilters) {
   return prisma.order.findMany({
     where: buildPrintableOrderWhere(filters),
@@ -112,6 +127,22 @@ export async function getPrintableOrderListFromDb(filters?: PrintableOrderFilter
       },
       placedByUser: true,
       processedByUser: true
+    }
+  });
+}
+
+export async function getProcessablePrintedOrderCountFromDb(filters?: PrintableOrderFilters) {
+  return prisma.order.count({
+    where: buildProcessablePrintedOrderWhere(filters)
+  });
+}
+
+export async function markPrintedOrdersProcessedFromDb(filters?: PrintableOrderFilters) {
+  return prisma.order.updateMany({
+    where: buildProcessablePrintedOrderWhere(filters),
+    data: {
+      status: "PROCESSED",
+      processedAt: new Date()
     }
   });
 }

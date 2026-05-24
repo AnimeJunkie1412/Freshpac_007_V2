@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote, ClipboardList, Filter, Plus, Printer, Search, Truck, WifiOff } from "lucide-react";
+import { Banknote, ClipboardList, Filter, ListChecks, Plus, Printer, Search, Truck, WifiOff } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -51,6 +51,7 @@ export default async function OrdersPage({
   const status = searchParams?.status || "ALL";
   const source = searchParams?.source || "ALL";
   const batchPrintHref = buildBatchPrintHref({ q, status, source });
+  const pickListHref = buildPickListHref({ q, status, source });
 
   const [orders, attentionOrders, stats] = await Promise.all([
     getOrderListFromDb({ q, status, source }),
@@ -76,6 +77,11 @@ export default async function OrdersPage({
               </div>
 
               <div className="flex flex-wrap gap-2">
+                <LinkButton href={pickListHref} size="sm" variant="secondary">
+                  <ListChecks className="mr-2 size-4" />
+                  Pick list
+                </LinkButton>
+
                 <LinkButton href={batchPrintHref} size="sm" variant="secondary">
                   <Printer className="mr-2 size-4" />
                   Print filtered
@@ -349,7 +355,7 @@ export default async function OrdersPage({
           <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Processing actions</CardTitle>
-              <CardDescription>Print current filtered orders, then process after confirming successful print.</CardDescription>
+              <CardDescription>Print order sheets and pick lists from the current filtered result set.</CardDescription>
             </CardHeader>
 
             <CardContent className="grid gap-2">
@@ -358,16 +364,17 @@ export default async function OrdersPage({
                 Print current filtered order sheets
               </LinkButton>
 
+              <LinkButton href={pickListHref} variant="secondary">
+                <ListChecks className="mr-2 size-4" />
+                Print general pick list
+              </LinkButton>
+
               <Button type="button" variant="secondary">
                 Print coffee pick list
               </Button>
 
               <Button type="button" variant="secondary">
                 Print retail pick list
-              </Button>
-
-              <Button type="button" variant="secondary">
-                Confirm printed successfully
               </Button>
             </CardContent>
           </Card>
@@ -458,6 +465,26 @@ function buildBatchPrintHref({
   const query = params.toString();
 
   return query ? `/portal/sales/orders/print?${query}` : "/portal/sales/orders/print?status=NEEDS_PRINT";
+}
+
+function buildPickListHref({
+  q,
+  status,
+  source
+}: {
+  q: string;
+  status: string;
+  source: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+  if (source && source !== "ALL") params.set("source", source);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/orders/pick-list?${query}` : "/portal/sales/orders/pick-list?status=NEEDS_PRINT";
 }
 
 function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {

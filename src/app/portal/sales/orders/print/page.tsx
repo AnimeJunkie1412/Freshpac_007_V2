@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { CheckCircle2 } from "lucide-react";
+import { confirmFilteredOrdersPrinted } from "@/app/portal/sales/orders/print/actions";
 import { PrintActions } from "@/components/print/print-actions";
+import { Button } from "@/components/ui/button";
 import {
   formatDateTime,
   formatDeliveryMethod,
@@ -10,7 +13,10 @@ import {
   getAddressLines,
   getOrderReference
 } from "@/lib/sales/order-db";
-import { getPrintableOrderListFromDb } from "@/lib/sales/order-print-db";
+import {
+  getPrintableOrderListFromDb,
+  getProcessablePrintedOrderCountFromDb
+} from "@/lib/sales/order-print-db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -30,11 +36,18 @@ export default async function BatchOrderPrintPage({
   const status = searchParams?.status || "NEEDS_PRINT";
   const source = searchParams?.source || "ALL";
 
-  const orders = await getPrintableOrderListFromDb({
-    q,
-    status,
-    source
-  });
+  const [orders, processableCount] = await Promise.all([
+    getPrintableOrderListFromDb({
+      q,
+      status,
+      source
+    }),
+    getProcessablePrintedOrderCountFromDb({
+      q,
+      status,
+      source
+    })
+  ]);
 
   const backHref = buildOrdersBackHref({ q, status, source });
 
@@ -287,12 +300,30 @@ export default async function BatchOrderPrintPage({
         <PrintActions backHref={backHref} />
 
         <div className="no-print mb-4 rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm">
-          <p className="text-sm font-black text-freshpac-charcoal">
-            Batch order print
-          </p>
-          <p className="mt-1 text-sm text-freshpac-grey">
-            Printing {orders.length} order sheet{orders.length === 1 ? "" : "s"} from the current filtered order list.
-          </p>
+          <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="text-sm font-black text-freshpac-charcoal">
+                Batch order print
+              </p>
+              <p className="mt-1 text-sm text-freshpac-grey">
+                Printing {orders.length} order sheet{orders.length === 1 ? "" : "s"} from the current filtered order list.
+                {processableCount > 0
+                  ? ` ${processableCount} can be marked as processed after successful printing.`
+                  : " No orders in this batch can currently be marked as processed."}
+              </p>
+            </div>
+
+            <form action={confirmFilteredOrdersPrinted}>
+              <input type="hidden" name="q" value={q} />
+              <input type="hidden" name="status" value={status} />
+              <input type="hidden" name="source" value={source} />
+
+              <Button type="submit" disabled={processableCount === 0}>
+                <CheckCircle2 className="mr-2 size-4" />
+                Confirm printed successfully
+              </Button>
+            </form>
+          </div>
         </div>
 
         {orders.map((order) => (
