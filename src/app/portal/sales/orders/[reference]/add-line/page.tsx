@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, PackagePlus, Search, ShoppingBasket } from "lucide-react";
-import { addManualOrderLine } from "@/app/portal/sales/orders/[reference]/add-line/actions";
+import { ArrowLeft, PackagePlus, Search, ShoppingBasket, Trash2 } from "lucide-react";
+import {
+  addManualOrderLine,
+  removeManualOrderLine,
+  updateManualOrderLineQuantity
+} from "@/app/portal/sales/orders/[reference]/add-line/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -80,7 +84,7 @@ export default async function AddManualOrderLinePage({
         </LinkButton>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[440px_1fr]">
         <div className="grid content-start gap-4">
           <Card className="portal-card-safe">
             <CardHeader>
@@ -121,7 +125,7 @@ export default async function AddManualOrderLinePage({
             <CardHeader>
               <CardTitle>Current lines</CardTitle>
               <CardDescription>
-                Lines already added to this order.
+                Update quantities or remove lines before printing.
               </CardDescription>
             </CardHeader>
 
@@ -147,6 +151,33 @@ export default async function AddManualOrderLinePage({
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <MiniDetail label="Unit" value={formatOrderMoney(line.priceIncVatPence, true)} />
                     <MiniDetail label="Total" value={formatOrderMoney(line.lineTotalPence, true)} />
+                  </div>
+
+                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <form action={updateManualOrderLineQuantity} className="grid grid-cols-[1fr_auto] gap-2">
+                      <input type="hidden" name="orderReference" value={orderReference} />
+                      <input type="hidden" name="lineId" value={line.id} />
+                      <input type="hidden" name="q" value={q} />
+                      <Input
+                        name="quantity"
+                        type="number"
+                        min={1}
+                        defaultValue={line.quantity}
+                      />
+                      <Button type="submit" variant="secondary">
+                        Update
+                      </Button>
+                    </form>
+
+                    <form action={removeManualOrderLine}>
+                      <input type="hidden" name="orderReference" value={orderReference} />
+                      <input type="hidden" name="lineId" value={line.id} />
+                      <input type="hidden" name="q" value={q} />
+                      <Button type="submit" variant="secondary" className="w-full">
+                        <Trash2 className="mr-2 size-4" />
+                        Remove
+                      </Button>
+                    </form>
                   </div>
                 </div>
               ))}

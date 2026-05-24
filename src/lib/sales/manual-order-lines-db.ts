@@ -123,7 +123,7 @@ export async function addManualOrderLineFromDb({
   productId: string;
   quantity: number;
 }) {
-  const safeQuantity = Math.max(1, Math.floor(quantity || 1));
+  const safeQuantity = normaliseQuantity(quantity);
 
   const order = await prisma.order.findFirst({
     where: {
@@ -183,6 +183,59 @@ export async function addManualOrderLineFromDb({
   return order;
 }
 
+export async function updateManualOrderLineQuantityFromDb({
+  orderReference,
+  lineId,
+  quantity
+}: {
+  orderReference: string;
+  lineId: string;
+  quantity: number;
+}) {
+  const safeQuantity = normaliseQuantity(quantity);
+  const order = await getManualOrderWithLineOrThrow(orderReference, lineId);
+
+  const line = order.lines.find((orderLine) => orderLine.id === lineId);
+
+  if (!line) {
+    throw new Error("Order line was not found.");
+  }
+
+  await prisma.orderLine.update({
+    where: {
+      id: lineId
+    },
+    data: {
+      quantity: safeQuantity,
+      lineTotalPence: line.priceIncVatPence * safeQuantity
+    }
+  });
+
+  await recalculateOrderTotals(order.id);
+
+  return order;
+}
+
+export async function removeManualOrderLineFromDb({
+  orderReference,
+  lineId
+}: {
+  orderReference: string;
+  lineId: string;
+}) {
+  const order = await getManualOrderWithLineOrThrow(orderReference, lineId);
+
+  await prisma.orderLine.delete({
+    where: {
+      id: lineId
+    }
+  });
+
+  await recalculateOrderTotals(order.id);
+
+  return order;
+}
+
 export async function recalculateOrderTotals(orderId: string) {
   const order = await prisma.order.findUnique({
     where: {
@@ -222,4 +275,38 @@ export async function recalculateOrderTotals(orderId: string) {
       totalIncVatPence
     }
   });
+}
+
+async function getManualOrderWithLineOrThrow(orderReference: string, lineId: string) {
+  const order = await prisma.order.findFirst({
+    where: {
+      OR: [
+        {
+          reference: orderReference
+        },
+        {
+          temporaryReference: orderReference
+        }
+      ]
+    },
+    include: {
+      lines: true
+    }
+  });
+
+  if (!order) {
+    throw new Error("Order was not found.");
+  }
+
+  const lineBelongsToOrder = order.lines.some((line) => line.id === lineId);
+
+  if (!lineBelongsToOrder) {
+    throw new Error("Order line does not belong to this order.");
+  }
+
+  return order;
+}
+
+function normaliseQuantity(quantity: number) {
+  return Math.max(1, Math.floor(Number.isFinite(quantity) ? quantity : 1));
 }
