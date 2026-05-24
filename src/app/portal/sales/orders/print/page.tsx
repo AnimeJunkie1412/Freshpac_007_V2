@@ -23,6 +23,254 @@ export const revalidate = 0;
 
 type PrintableOrder = Awaited<ReturnType<typeof getPrintableOrderListFromDb>>[number];
 
+const printStyles = `
+  @page {
+    size: A4;
+    margin: 7mm;
+  }
+
+  @media print {
+    html,
+    body {
+      width: 210mm;
+      height: auto !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      overflow: visible !important;
+    }
+
+    body {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    main {
+      height: auto !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      overflow: visible !important;
+    }
+
+    .no-print {
+      display: none !important;
+    }
+
+    .batch-print-shell {
+      width: 196mm !important;
+      max-width: 196mm !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+    }
+
+    .batch-print-page {
+      width: 196mm !important;
+      max-width: 196mm !important;
+      height: auto !important;
+      min-height: 0 !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      break-after: page;
+      page-break-after: always;
+    }
+
+    .batch-print-page:last-child {
+      break-after: auto !important;
+      page-break-after: auto !important;
+    }
+
+    .print-sheet {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: auto !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+    }
+
+    .print-avoid-break {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .print-compact-header {
+      padding-bottom: 2.5mm !important;
+      margin-bottom: 2.5mm !important;
+    }
+
+    .print-title {
+      font-size: 18px !important;
+      line-height: 1.1 !important;
+      margin-top: 2mm !important;
+    }
+
+    .print-company-text {
+      font-size: 8px !important;
+      line-height: 1.25 !important;
+    }
+
+    .delivery-required-banner {
+      padding: 2mm !important;
+      margin-top: 2mm !important;
+      border-width: 1.5px !important;
+      font-size: 9px !important;
+      line-height: 1.18 !important;
+    }
+
+    .delivery-required-banner-title {
+      font-size: 12px !important;
+      line-height: 1.05 !important;
+      letter-spacing: 0.08em !important;
+    }
+
+    .print-info-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr 1fr !important;
+      gap: 2mm !important;
+      margin-top: 2.5mm !important;
+    }
+
+    .print-info-card {
+      padding: 2mm !important;
+      border-radius: 4px !important;
+    }
+
+    .print-info-card h2 {
+      font-size: 8px !important;
+      line-height: 1.2 !important;
+      margin-bottom: 1.2mm !important;
+    }
+
+    .print-info-row {
+      display: grid !important;
+      grid-template-columns: 22mm 1fr !important;
+      gap: 1.5mm !important;
+      font-size: 8px !important;
+      line-height: 1.18 !important;
+      margin-top: 0.7mm !important;
+    }
+
+    .print-address-text {
+      font-size: 8px !important;
+      line-height: 1.18 !important;
+    }
+
+    .print-lines-section {
+      margin-top: 2.5mm !important;
+    }
+
+    .print-lines-title {
+      font-size: 11px !important;
+      line-height: 1.2 !important;
+      margin-bottom: 1.2mm !important;
+    }
+
+    .print-table {
+      table-layout: fixed !important;
+      width: 100% !important;
+      border-collapse: collapse !important;
+    }
+
+    .print-table th {
+      padding: 1.2mm 1mm !important;
+      font-size: 7.3px !important;
+      line-height: 1.05 !important;
+      vertical-align: middle !important;
+    }
+
+    .print-table td {
+      padding: 1mm 1mm !important;
+      font-size: 7.8px !important;
+      line-height: 1.08 !important;
+      vertical-align: middle !important;
+    }
+
+    .print-table tbody tr {
+      height: 5.4mm !important;
+      max-height: 5.4mm !important;
+    }
+
+    .print-line-description {
+      display: block !important;
+      max-height: 8.5px !important;
+      overflow: hidden !important;
+      white-space: nowrap !important;
+      text-overflow: ellipsis !important;
+    }
+
+    .print-after-lines {
+      margin-top: 2.5mm !important;
+      display: grid !important;
+      grid-template-columns: 1fr 52mm !important;
+      gap: 2.5mm !important;
+    }
+
+    .print-notes-box,
+    .print-totals-box {
+      padding: 2mm !important;
+      border-radius: 4px !important;
+    }
+
+    .print-notes-box h2,
+    .print-totals-box h2 {
+      font-size: 8px !important;
+      line-height: 1.2 !important;
+    }
+
+    .print-notes-text {
+      min-height: 12mm !important;
+      font-size: 8px !important;
+      line-height: 1.25 !important;
+      margin-top: 1.5mm !important;
+    }
+
+    .print-total-row {
+      font-size: 8.3px !important;
+      line-height: 1.18 !important;
+      margin-top: 0.8mm !important;
+    }
+
+    .print-total-row-strong {
+      font-size: 10.5px !important;
+      line-height: 1.15 !important;
+    }
+
+    .print-footer {
+      display: block !important;
+      position: static !important;
+      margin-top: 2.5mm !important;
+      margin-bottom: 0 !important;
+      padding-top: 1.5mm !important;
+      padding-bottom: 0 !important;
+      font-size: 6.6px !important;
+      line-height: 1.15 !important;
+      break-after: auto !important;
+      page-break-after: auto !important;
+    }
+
+    .screen-only {
+      display: none !important;
+    }
+  }
+
+  @media screen {
+    .batch-print-shell {
+      max-width: 1100px;
+    }
+
+    .batch-print-page + .batch-print-page {
+      margin-top: 24px;
+    }
+  }
+`;
+
 export default async function BatchOrderPrintPage({
   searchParams
 }: {
@@ -53,248 +301,7 @@ export default async function BatchOrderPrintPage({
 
   return (
     <main className="min-h-screen bg-freshpac-cream px-4 py-5 text-freshpac-charcoal print:bg-white print:px-0 print:py-0">
-      <style>
-        {`
-          @page {
-            size: A4;
-            margin: 7mm;
-          }
-
-          @media print {
-            html,
-            body {
-              width: 210mm;
-              height: auto !important;
-              min-height: 0 !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
-              overflow: visible !important;
-            }
-
-            body {
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-
-            main {
-              height: auto !important;
-              min-height: 0 !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
-              overflow: visible !important;
-            }
-
-            .no-print {
-              display: none !important;
-            }
-
-            .batch-print-shell {
-              width: 196mm !important;
-              max-width: 196mm !important;
-              margin: 0 auto !important;
-              padding: 0 !important;
-            }
-
-            .batch-print-page {
-              width: 196mm !important;
-              max-width: 196mm !important;
-              height: auto !important;
-              min-height: 0 !important;
-              margin: 0 auto !important;
-              padding: 0 !important;
-              break-after: page;
-              page-break-after: always;
-            }
-
-            .batch-print-page:last-child {
-              break-after: auto !important;
-              page-break-after: auto !important;
-            }
-
-            .print-sheet {
-              width: 100% !important;
-              max-width: 100% !important;
-              height: auto !important;
-              min-height: 0 !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              border: none !important;
-              border-radius: 0 !important;
-              box-shadow: none !important;
-              overflow: visible !important;
-            }
-
-            .print-avoid-break {
-              break-inside: avoid;
-              page-break-inside: avoid;
-            }
-
-            .print-compact-header {
-              padding-bottom: 2.5mm !important;
-              margin-bottom: 2.5mm !important;
-            }
-
-            .print-title {
-              font-size: 18px !important;
-              line-height: 1.1 !important;
-              margin-top: 2mm !important;
-            }
-
-            .print-company-text {
-              font-size: 8px !important;
-              line-height: 1.25 !important;
-            }
-
-            .print-warning {
-              padding: 1.8mm !important;
-              margin-top: 1.8mm !important;
-              font-size: 8.5px !important;
-              line-height: 1.2 !important;
-            }
-
-            .print-info-grid {
-              display: grid !important;
-              grid-template-columns: 1fr 1fr 1fr !important;
-              gap: 2mm !important;
-              margin-top: 2.5mm !important;
-            }
-
-            .print-info-card {
-              padding: 2mm !important;
-              border-radius: 4px !important;
-            }
-
-            .print-info-card h2 {
-              font-size: 8px !important;
-              line-height: 1.2 !important;
-              margin-bottom: 1.2mm !important;
-            }
-
-            .print-info-row {
-              display: grid !important;
-              grid-template-columns: 22mm 1fr !important;
-              gap: 1.5mm !important;
-              font-size: 8px !important;
-              line-height: 1.18 !important;
-              margin-top: 0.7mm !important;
-            }
-
-            .print-address-text {
-              font-size: 8px !important;
-              line-height: 1.18 !important;
-            }
-
-            .print-lines-section {
-              margin-top: 2.5mm !important;
-            }
-
-            .print-lines-title {
-              font-size: 11px !important;
-              line-height: 1.2 !important;
-              margin-bottom: 1.2mm !important;
-            }
-
-            .print-table {
-              table-layout: fixed !important;
-              width: 100% !important;
-              border-collapse: collapse !important;
-            }
-
-            .print-table th {
-              padding: 1.2mm 1mm !important;
-              font-size: 7.3px !important;
-              line-height: 1.05 !important;
-              vertical-align: middle !important;
-            }
-
-            .print-table td {
-              padding: 1mm 1mm !important;
-              font-size: 7.8px !important;
-              line-height: 1.08 !important;
-              vertical-align: middle !important;
-            }
-
-            .print-table tbody tr {
-              height: 5.4mm !important;
-              max-height: 5.4mm !important;
-            }
-
-            .print-line-description {
-              display: block !important;
-              max-height: 8.5px !important;
-              overflow: hidden !important;
-              white-space: nowrap !important;
-              text-overflow: ellipsis !important;
-            }
-
-            .print-after-lines {
-              margin-top: 2.5mm !important;
-              display: grid !important;
-              grid-template-columns: 1fr 52mm !important;
-              gap: 2.5mm !important;
-            }
-
-            .print-notes-box,
-            .print-totals-box {
-              padding: 2mm !important;
-              border-radius: 4px !important;
-            }
-
-            .print-notes-box h2,
-            .print-totals-box h2 {
-              font-size: 8px !important;
-              line-height: 1.2 !important;
-            }
-
-            .print-notes-text {
-              min-height: 12mm !important;
-              font-size: 8px !important;
-              line-height: 1.25 !important;
-              margin-top: 1.5mm !important;
-            }
-
-            .print-total-row {
-              font-size: 8.3px !important;
-              line-height: 1.18 !important;
-              margin-top: 0.8mm !important;
-            }
-
-            .print-total-row-strong {
-              font-size: 10.5px !important;
-              line-height: 1.15 !important;
-            }
-
-            .print-footer {
-              display: block !important;
-              position: static !important;
-              margin-top: 2.5mm !important;
-              margin-bottom: 0 !important;
-              padding-top: 1.5mm !important;
-              padding-bottom: 0 !important;
-              font-size: 6.6px !important;
-              line-height: 1.15 !important;
-              break-after: auto !important;
-              page-break-after: auto !important;
-            }
-
-            .screen-only {
-              display: none !important;
-            }
-          }
-
-          @media screen {
-            .batch-print-shell {
-              max-width: 1100px;
-            }
-
-            .batch-print-page + .batch-print-page {
-              margin-top: 24px;
-            }
-          }
-        `}
-      </style>
+      <style dangerouslySetInnerHTML={{ __html: printStyles }} />
 
       <div className="batch-print-shell mx-auto">
         <PrintActions backHref={backHref} />
@@ -302,9 +309,7 @@ export default async function BatchOrderPrintPage({
         <div className="no-print mb-4 rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm">
           <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
-              <p className="text-sm font-black text-freshpac-charcoal">
-                Batch order print
-              </p>
+              <p className="text-sm font-black text-freshpac-charcoal">Batch order print</p>
               <p className="mt-1 text-sm text-freshpac-grey">
                 Printing {orders.length} order sheet{orders.length === 1 ? "" : "s"} from the current filtered order list.
                 {processableCount > 0
@@ -366,9 +371,15 @@ function OrderSheet({ order }: { order: PrintableOrder }) {
               <h1 className="print-title mt-2 text-3xl font-black tracking-tight text-freshpac-charcoal">
                 Customer Sales Order
               </h1>
+
               {!priceVisible ? (
-                <div className="print-warning mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-black text-amber-900">
-                  Delivery Note Needed - customer prices are hidden.
+                <div className="delivery-required-banner mt-3 rounded-xl border-2 border-red-700 bg-red-50 p-3 text-sm font-black text-red-900">
+                  <p className="delivery-required-banner-title uppercase">
+                    Delivery Note Required
+                  </p>
+                  <p className="mt-1">
+                    Do not send this priced order sheet to the customer. Print the price-free Delivery Note for delivery/customer paperwork.
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -526,7 +537,7 @@ function OrderSheet({ order }: { order: PrintableOrder }) {
 
           <div className="print-totals-box rounded-2xl border border-freshpac-panel p-4">
             <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
-              Totals
+              Totals / paperwork
             </h2>
 
             {priceVisible ? (
@@ -539,8 +550,11 @@ function OrderSheet({ order }: { order: PrintableOrder }) {
                 </div>
               </div>
             ) : (
-              <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-black text-amber-900">
-                Delivery Note Needed
+              <div className="mt-3 rounded-xl border-2 border-red-700 bg-red-50 p-3 text-sm font-black text-red-900">
+                DELIVERY NOTE REQUIRED
+                <p className="mt-1 text-xs font-bold">
+                  Print the delivery note before this order leaves Freshpac.
+                </p>
               </div>
             )}
           </div>

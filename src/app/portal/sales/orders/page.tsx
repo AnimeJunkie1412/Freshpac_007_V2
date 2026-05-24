@@ -229,7 +229,7 @@ export default async function OrdersPage({
                         </div>
                       </Link>
 
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="mt-3 grid grid-cols-3 gap-2">
                         <Link
                           href={`/portal/sales/orders/${encodedReference}`}
                           className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:border-freshpac-orange hover:bg-orange-50"
@@ -241,8 +241,16 @@ export default async function OrdersPage({
                           href={`/portal/sales/orders/${encodedReference}/print`}
                           className="inline-flex items-center justify-center rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:bg-orange-400"
                         >
-                          <Printer className="mr-2 size-3" />
+                          <Printer className="mr-1 size-3" />
                           Print
+                        </Link>
+
+                        <Link
+                          href={`/portal/sales/orders/${encodedReference}/delivery-note`}
+                          className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:border-freshpac-orange hover:bg-orange-50"
+                        >
+                          <Truck className="mr-1 size-3" />
+                          Note
                         </Link>
                       </div>
                     </div>
@@ -320,7 +328,7 @@ export default async function OrdersPage({
                             )}
                           </td>
                           <td>
-                            <div className="flex min-w-40 flex-wrap gap-2">
+                            <div className="flex min-w-64 flex-wrap gap-2">
                               <Link
                                 href={`/portal/sales/orders/${encodedReference}`}
                                 className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
@@ -334,6 +342,14 @@ export default async function OrdersPage({
                               >
                                 <Printer className="mr-2 size-3" />
                                 Print
+                              </Link>
+
+                              <Link
+                                href={`/portal/sales/orders/${encodedReference}/delivery-note`}
+                                className="inline-flex items-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+                              >
+                                <Truck className="mr-2 size-3" />
+                                Delivery note
                               </Link>
                             </div>
                           </td>

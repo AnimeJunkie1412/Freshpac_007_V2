@@ -115,11 +115,18 @@ export default async function OrderPrintPage({
               line-height: 1.25 !important;
             }
 
-            .print-warning {
-              padding: 1.8mm !important;
-              margin-top: 1.8mm !important;
-              font-size: 8.5px !important;
-              line-height: 1.2 !important;
+            .delivery-required-banner {
+              padding: 2mm !important;
+              margin-top: 2mm !important;
+              border-width: 1.5px !important;
+              font-size: 9px !important;
+              line-height: 1.18 !important;
+            }
+
+            .delivery-required-banner-title {
+              font-size: 12px !important;
+              line-height: 1.05 !important;
+              letter-spacing: 0.08em !important;
             }
 
             .print-info-grid {
@@ -273,9 +280,15 @@ export default async function OrderPrintPage({
                 <h1 className="print-title mt-2 text-3xl font-black tracking-tight text-freshpac-charcoal">
                   Customer Sales Order
                 </h1>
+
                 {!priceVisible ? (
-                  <div className="print-warning mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-black text-amber-900">
-                    Delivery Note Needed - customer prices are hidden.
+                  <div className="delivery-required-banner mt-3 rounded-xl border-2 border-red-700 bg-red-50 p-3 text-sm font-black text-red-900">
+                    <p className="delivery-required-banner-title uppercase">
+                      Delivery Note Required
+                    </p>
+                    <p className="mt-1">
+                      Do not send this priced order sheet to the customer. Print the price-free Delivery Note for delivery/customer paperwork.
+                    </p>
                   </div>
                 ) : null}
               </div>
@@ -433,7 +446,7 @@ export default async function OrderPrintPage({
 
             <div className="print-totals-box rounded-2xl border border-freshpac-panel p-4">
               <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
-                Totals
+                Totals / paperwork
               </h2>
 
               {priceVisible ? (
@@ -446,8 +459,11 @@ export default async function OrderPrintPage({
                   </div>
                 </div>
               ) : (
-                <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-black text-amber-900">
-                  Delivery Note Needed
+                <div className="mt-3 rounded-xl border-2 border-red-700 bg-red-50 p-3 text-sm font-black text-red-900">
+                  DELIVERY NOTE REQUIRED
+                  <p className="mt-1 text-xs font-bold">
+                    Print the delivery note before this order leaves Freshpac.
+                  </p>
                 </div>
               )}
             </div>
