@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
-import { Button, LinkButton } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   formatDateTime,
@@ -27,6 +27,9 @@ import {
   getOrderReference,
   getPortalDashboardData
 } from "@/lib/portal/dashboard-db";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type DashboardData = Awaited<ReturnType<typeof getPortalDashboardData>>;
 type RecentOrder = DashboardData["recentOrders"][number];

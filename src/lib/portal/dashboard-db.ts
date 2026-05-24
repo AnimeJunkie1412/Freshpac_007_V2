@@ -84,153 +84,137 @@ export function getEngineerJobReference(job: {
 }
 
 export async function getPortalDashboardData() {
-  const [
-    ordersReadyToProcess,
-    ordersAwaitingPayment,
-    tradeRequestsWaiting,
-    customersOnHold,
-    hiddenPriceAccounts,
-    callListToCall,
-    engineerJobsNeedReview,
-    partsRequests,
-    syncWarnings,
-    recentOrders,
-    recentTradeRequests,
-    recentEngineerJobs,
-    latestAuditEvents
-  ] = await Promise.all([
-    prisma.order.count({
-      where: {
-        status: {
-          in: ["SUBMITTED", "PAID_SUBMITTED"]
-        }
+  const ordersReadyToProcess = await prisma.order.count({
+    where: {
+      status: {
+        in: ["SUBMITTED", "PAID_SUBMITTED"]
       }
-    }),
+    }
+  });
 
-    prisma.order.count({
-      where: {
-        status: "AWAITING_PAYMENT"
+  const ordersAwaitingPayment = await prisma.order.count({
+    where: {
+      status: "AWAITING_PAYMENT"
+    }
+  });
+
+  const tradeRequestsWaiting = await prisma.tradeAccountRequest.count({
+    where: {
+      status: {
+        in: ["NEW", "CONTACTED", "ASSIGNED"]
       }
-    }),
+    }
+  });
 
-    prisma.tradeAccountRequest.count({
-      where: {
-        status: {
-          in: ["NEW", "CONTACTED", "ASSIGNED"]
-        }
-      }
-    }),
+  const customersOnHold = await prisma.customerAccount.count({
+    where: {
+      status: "ON_HOLD"
+    }
+  });
 
-    prisma.customerAccount.count({
-      where: {
-        status: "ON_HOLD"
-      }
-    }),
+  const hiddenPriceAccounts = await prisma.customerAccount.count({
+    where: {
+      priceVisibility: false
+    }
+  });
 
-    prisma.customerAccount.count({
-      where: {
-        priceVisibility: false
-      }
-    }),
+  const callListToCall = await prisma.callListEntry.count({
+    where: {
+      status: "TO_CALL"
+    }
+  });
 
-    prisma.callListEntry.count({
-      where: {
-        status: "TO_CALL"
-      }
-    }),
-
-    prisma.engineerJob.count({
-      where: {
-        OR: [
-          {
-            status: "FOLLOW_UP_REQUIRED"
-          },
-          {
-            chargeable: "TO_REVIEW"
-          },
-          {
-            followUpRequired: true
-          }
-        ]
-      }
-    }),
-
-    prisma.partsRequest.count(),
-
-    prisma.auditLog.count({
-      where: {
-        OR: [
-          {
-            actionType: {
-              contains: "SYNC",
-              mode: "insensitive"
-            }
-          },
-          {
-            actionType: {
-              contains: "CONFLICT",
-              mode: "insensitive"
-            }
-          },
-          {
-            entityType: {
-              contains: "SYNC",
-              mode: "insensitive"
-            }
-          }
-        ]
-      }
-    }),
-
-    prisma.order.findMany({
-      orderBy: {
-        createdAt: "desc"
-      },
-      include: {
-        customer: true,
-        lines: true
-      },
-      take: 6
-    }),
-
-    prisma.tradeAccountRequest.findMany({
-      orderBy: {
-        createdAt: "desc"
-      },
-      include: {
-        customer: true
-      },
-      take: 5
-    }),
-
-    prisma.engineerJob.findMany({
-      orderBy: [
+  const engineerJobsNeedReview = await prisma.engineerJob.count({
+    where: {
+      OR: [
         {
-          scheduledAt: "asc"
+          status: "FOLLOW_UP_REQUIRED"
         },
         {
-          createdAt: "desc"
+          chargeable: "TO_REVIEW"
+        },
+        {
+          followUpRequired: true
         }
-      ],
-      include: {
-        customer: true,
-        assignedEngineer: true,
-        partsRequests: true,
-        machineSheets: true
-      },
-      take: 6
-    }),
+      ]
+    }
+  });
 
-    prisma.auditLog.findMany({
-      orderBy: {
+  const partsRequests = await prisma.partsRequest.count();
+
+  const syncWarnings = await prisma.auditLog.count({
+    where: {
+      OR: [
+        {
+          actionType: {
+            contains: "SYNC",
+            mode: "insensitive"
+          }
+        },
+        {
+          actionType: {
+            contains: "CONFLICT",
+            mode: "insensitive"
+          }
+        },
+        {
+          entityType: {
+            contains: "SYNC",
+            mode: "insensitive"
+          }
+        }
+      ]
+    }
+  });
+
+  const recentOrders = await prisma.order.findMany({
+    orderBy: {
+      createdAt: "desc"
+    },
+    include: {
+      customer: true,
+      lines: true
+    },
+    take: 6
+  });
+
+  const recentTradeRequests = await prisma.tradeAccountRequest.findMany({
+    orderBy: {
+      createdAt: "desc"
+    },
+    include: {
+      customer: true
+    },
+    take: 5
+  });
+
+  const recentEngineerJobs = await prisma.engineerJob.findMany({
+    orderBy: [
+      {
+        scheduledAt: "asc"
+      },
+      {
         createdAt: "desc"
-      },
-      include: {
-        user: true
-      },
-      take: 8
-    })
-  ]);
+      }
+    ],
+    include: {
+      customer: true,
+      assignedEngineer: true,
+      partsRequests: true,
+      machineSheets: true
+    },
+    take: 6
+  });
+
+  const latestAuditEvents = await prisma.auditLog.findMany({
+    orderBy: {
+      createdAt: "desc"
+    },
+    include: {
+      user: true
+    },
+    take: 8
+  });
 
   return {
     counters: {

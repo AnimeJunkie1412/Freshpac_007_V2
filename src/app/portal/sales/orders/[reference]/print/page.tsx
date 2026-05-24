@@ -36,68 +36,251 @@ export default async function OrderPrintPage({
         {`
           @page {
             size: A4;
-            margin: 10mm;
+            margin: 7mm;
           }
 
           @media print {
             html,
             body {
+              width: 210mm;
+              height: auto !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
               background: white !important;
+              overflow: visible !important;
+            }
+
+            body {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            main {
+              height: auto !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              overflow: visible !important;
             }
 
             .no-print {
               display: none !important;
             }
 
+            .print-page {
+              width: 196mm !important;
+              max-width: 196mm !important;
+              height: auto !important;
+              min-height: 0 !important;
+              margin: 0 auto !important;
+              padding: 0 !important;
+              overflow: visible !important;
+            }
+
             .print-sheet {
-              box-shadow: none !important;
-              border: none !important;
               width: 100% !important;
               max-width: 100% !important;
+              height: auto !important;
+              min-height: 0 !important;
+              margin: 0 !important;
               padding: 0 !important;
+              border: none !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+              overflow: visible !important;
+              break-after: auto !important;
+              page-break-after: auto !important;
             }
 
             .print-avoid-break {
               break-inside: avoid;
+              page-break-inside: avoid;
             }
 
-            .print-table th,
+            .print-compact-header {
+              padding-bottom: 2.5mm !important;
+              margin-bottom: 2.5mm !important;
+            }
+
+            .print-title {
+              font-size: 18px !important;
+              line-height: 1.1 !important;
+              margin-top: 2mm !important;
+            }
+
+            .print-company-text {
+              font-size: 8px !important;
+              line-height: 1.25 !important;
+            }
+
+            .print-warning {
+              padding: 1.8mm !important;
+              margin-top: 1.8mm !important;
+              font-size: 8.5px !important;
+              line-height: 1.2 !important;
+            }
+
+            .print-info-grid {
+              display: grid !important;
+              grid-template-columns: 1fr 1fr 1fr !important;
+              gap: 2mm !important;
+              margin-top: 2.5mm !important;
+            }
+
+            .print-info-card {
+              padding: 2mm !important;
+              border-radius: 4px !important;
+            }
+
+            .print-info-card h2 {
+              font-size: 8px !important;
+              line-height: 1.2 !important;
+              margin-bottom: 1.2mm !important;
+            }
+
+            .print-info-row {
+              display: grid !important;
+              grid-template-columns: 22mm 1fr !important;
+              gap: 1.5mm !important;
+              font-size: 8px !important;
+              line-height: 1.18 !important;
+              margin-top: 0.7mm !important;
+            }
+
+            .print-address-text {
+              font-size: 8px !important;
+              line-height: 1.18 !important;
+            }
+
+            .print-lines-section {
+              margin-top: 2.5mm !important;
+            }
+
+            .print-lines-title {
+              font-size: 11px !important;
+              line-height: 1.2 !important;
+              margin-bottom: 1.2mm !important;
+            }
+
+            .print-table {
+              table-layout: fixed !important;
+              width: 100% !important;
+              border-collapse: collapse !important;
+            }
+
+            .print-table th {
+              padding: 1.2mm 1mm !important;
+              font-size: 7.3px !important;
+              line-height: 1.05 !important;
+              vertical-align: middle !important;
+            }
+
             .print-table td {
-              padding: 5px 6px !important;
-              font-size: 10px !important;
+              padding: 1mm 1mm !important;
+              font-size: 7.8px !important;
+              line-height: 1.08 !important;
+              vertical-align: middle !important;
+            }
+
+            .print-table tbody tr {
+              height: 5.4mm !important;
+              max-height: 5.4mm !important;
+            }
+
+            .print-line-description {
+              display: block !important;
+              max-height: 8.5px !important;
+              overflow: hidden !important;
+              white-space: nowrap !important;
+              text-overflow: ellipsis !important;
+            }
+
+            .print-after-lines {
+              margin-top: 2.5mm !important;
+              display: grid !important;
+              grid-template-columns: 1fr 52mm !important;
+              gap: 2.5mm !important;
+            }
+
+            .print-notes-box,
+            .print-totals-box {
+              padding: 2mm !important;
+              border-radius: 4px !important;
+            }
+
+            .print-notes-box h2,
+            .print-totals-box h2 {
+              font-size: 8px !important;
+              line-height: 1.2 !important;
+            }
+
+            .print-notes-text {
+              min-height: 12mm !important;
+              font-size: 8px !important;
+              line-height: 1.25 !important;
+              margin-top: 1.5mm !important;
+            }
+
+            .print-total-row {
+              font-size: 8.3px !important;
+              line-height: 1.18 !important;
+              margin-top: 0.8mm !important;
+            }
+
+            .print-total-row-strong {
+              font-size: 10.5px !important;
+              line-height: 1.15 !important;
             }
 
             .print-footer {
-              position: fixed;
-              bottom: 0;
-              left: 0;
-              right: 0;
+              display: block !important;
+              position: static !important;
+              margin-top: 2.5mm !important;
+              margin-bottom: 0 !important;
+              padding-top: 1.5mm !important;
+              padding-bottom: 0 !important;
+              font-size: 6.6px !important;
+              line-height: 1.15 !important;
+              break-after: auto !important;
+              page-break-after: auto !important;
+            }
+
+            .screen-only {
+              display: none !important;
+            }
+          }
+
+          @media screen {
+            .print-page {
+              max-width: 1100px;
             }
           }
         `}
       </style>
 
-      <div className="mx-auto max-w-5xl">
+      <div className="print-page mx-auto">
         <PrintActions backHref={backHref} />
 
         <section className="print-sheet rounded-3xl border border-freshpac-panel bg-white p-6 shadow-panel">
-          <header className="border-b-2 border-freshpac-charcoal pb-4">
+          <header className="print-compact-header border-b-2 border-freshpac-charcoal pb-4">
             <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-freshpac-orange">
                   Freshpac Teas & Coffees Ltd
                 </p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight text-freshpac-charcoal">
+                <h1 className="print-title mt-2 text-3xl font-black tracking-tight text-freshpac-charcoal">
                   Customer Sales Order
                 </h1>
                 {!priceVisible ? (
-                  <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-black text-amber-900">
+                  <div className="print-warning mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-black text-amber-900">
                     Delivery Note Needed - customer prices are hidden.
                   </div>
                 ) : null}
               </div>
 
-              <div className="text-right text-xs leading-5 text-freshpac-charcoal">
+              <div className="print-company-text text-right text-xs leading-5 text-freshpac-charcoal">
                 <p className="font-black">Unit B, Broadway Drive</p>
                 <p>Halesworth, Suffolk, IP19 8QR</p>
                 <p>Tel: 01986 873410</p>
@@ -107,16 +290,16 @@ export default async function OrderPrintPage({
             </div>
           </header>
 
-          <section className="print-avoid-break mt-5 grid gap-4 sm:grid-cols-2">
+          <section className="print-info-grid mt-5 grid gap-4 lg:grid-cols-3">
             <InfoCard
               title="Order details"
               rows={[
-                ["Order reference", orderReference],
-                ["Order status", formatOrderStatus(order.status)],
-                ["Order source", formatOrderSource(order.source)],
-                ["Order date", formatDateTime(order.createdAt)],
-                ["Submitted by", order.placedByUser?.fullName || "System"],
-                ["Customer PO", order.customerPoNumber || "None"]
+                ["Order ref", orderReference],
+                ["Status", formatOrderStatus(order.status)],
+                ["Source", formatOrderSource(order.source)],
+                ["Date", formatDateTime(order.createdAt)],
+                ["By", order.placedByUser?.fullName || "System"],
+                ["PO", order.customerPoNumber || "None"]
               ]}
             />
 
@@ -125,29 +308,59 @@ export default async function OrderPrintPage({
               rows={[
                 ["Account", order.customer.accountNumber],
                 ["Customer", order.customer.siteName],
-                ["Delivery day", order.deliveryDay || order.customer.deliveryDay || "Not set"],
-                ["Driver / courier", order.driverOrCourier || order.customer.driverOrCourier || "Not set"],
-                ["Delivery method", formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)],
-                ["Processed at", order.processedAt ? formatDateTime(order.processedAt) : "Not processed"]
+                ["Day", order.deliveryDay || order.customer.deliveryDay || "Not set"],
+                ["Driver", order.driverOrCourier || order.customer.driverOrCourier || "Not set"],
+                ["Method", formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)],
+                ["Processed", order.processedAt ? formatDateTime(order.processedAt) : "Not processed"]
               ]}
             />
+
+            <div className="print-info-card rounded-2xl border border-freshpac-panel p-4">
+              <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
+                Addresses
+              </h2>
+
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                <AddressMiniBlock title="Invoice" lines={invoiceAddress} />
+                <AddressMiniBlock title="Delivery" lines={deliveryAddress} />
+              </div>
+            </div>
           </section>
 
-          <section className="print-avoid-break mt-5 grid gap-4 sm:grid-cols-2">
-            <AddressBlock title="Invoice address" lines={invoiceAddress} />
-            <AddressBlock title="Delivery address" lines={deliveryAddress} />
-          </section>
-
-          <section className="mt-6">
+          <section className="print-lines-section mt-6">
             <div className="mb-2 flex items-end justify-between gap-3">
-              <h2 className="text-lg font-black text-freshpac-charcoal">Order lines</h2>
-              <p className="text-xs font-semibold text-freshpac-grey">
-                Product codes are staff-facing.
+              <h2 className="print-lines-title text-lg font-black text-freshpac-charcoal">Order lines</h2>
+              <p className="screen-only text-xs font-semibold text-freshpac-grey">
+                Compact print layout designed to fit at least 20 lines on page one.
               </p>
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-freshpac-panel">
               <table className="print-table w-full border-collapse text-left text-xs">
+                <colgroup>
+                  {priceVisible ? (
+                    <>
+                      <col style={{ width: "14%" }} />
+                      <col style={{ width: "29%" }} />
+                      <col style={{ width: "9%" }} />
+                      <col style={{ width: "6%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "7%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "9%" }} />
+                    </>
+                  ) : (
+                    <>
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "47%" }} />
+                      <col style={{ width: "13%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "14%" }} />
+                    </>
+                  )}
+                </colgroup>
+
                 <thead className="bg-freshpac-charcoal text-white">
                   <tr>
                     <th className="p-2">Code</th>
@@ -157,10 +370,10 @@ export default async function OrderPrintPage({
                     <th className="p-2">Source</th>
                     {priceVisible ? (
                       <>
-                        <th className="p-2 text-right">Price ex VAT</th>
+                        <th className="p-2 text-right">Ex VAT</th>
                         <th className="p-2 text-right">VAT</th>
-                        <th className="p-2 text-right">Price inc VAT</th>
-                        <th className="p-2 text-right">Line total</th>
+                        <th className="p-2 text-right">Inc VAT</th>
+                        <th className="p-2 text-right">Total</th>
                       </>
                     ) : null}
                   </tr>
@@ -170,7 +383,9 @@ export default async function OrderPrintPage({
                   {order.lines.map((line) => (
                     <tr key={line.id} className="border-t border-freshpac-panel">
                       <td className="p-2 font-black">{line.productCodeSnapshot}</td>
-                      <td className="p-2">{line.descriptionSnapshot}</td>
+                      <td className="p-2">
+                        <span className="print-line-description">{line.descriptionSnapshot}</span>
+                      </td>
                       <td className="p-2">{line.packSizeSnapshot || "None"}</td>
                       <td className="p-2 text-right font-black">{line.quantity}</td>
                       <td className="p-2">{formatOrderLineSource(line.source)}</td>
@@ -197,12 +412,12 @@ export default async function OrderPrintPage({
             </div>
           </section>
 
-          <section className="print-avoid-break mt-5 grid gap-4 sm:grid-cols-[1fr_320px]">
-            <div className="rounded-2xl border border-freshpac-panel p-4">
+          <section className="print-after-lines print-avoid-break mt-5 grid gap-4 sm:grid-cols-[1fr_320px]">
+            <div className="print-notes-box rounded-2xl border border-freshpac-panel p-4">
               <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
                 Order notes
               </h2>
-              <p className="mt-3 min-h-20 text-sm leading-6 text-freshpac-charcoal">
+              <p className="print-notes-text mt-3 min-h-20 text-sm leading-6 text-freshpac-charcoal">
                 {order.customerNotes || "No customer notes recorded."}
               </p>
 
@@ -216,7 +431,7 @@ export default async function OrderPrintPage({
               ) : null}
             </div>
 
-            <div className="rounded-2xl border border-freshpac-panel p-4">
+            <div className="print-totals-box rounded-2xl border border-freshpac-panel p-4">
               <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
                 Totals
               </h2>
@@ -249,11 +464,11 @@ export default async function OrderPrintPage({
 
 function InfoCard({ title, rows }: { title: string; rows: Array<[string, string]> }) {
   return (
-    <div className="rounded-2xl border border-freshpac-panel p-4">
+    <div className="print-info-card rounded-2xl border border-freshpac-panel p-4">
       <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">{title}</h2>
       <div className="mt-3 space-y-2">
         {rows.map(([label, value]) => (
-          <div key={label} className="grid grid-cols-[120px_1fr] gap-3 text-sm">
+          <div key={label} className="print-info-row grid grid-cols-[120px_1fr] gap-3 text-sm">
             <p className="font-bold text-freshpac-grey">{label}</p>
             <p className="font-semibold text-freshpac-charcoal">{value}</p>
           </div>
@@ -263,11 +478,11 @@ function InfoCard({ title, rows }: { title: string; rows: Array<[string, string]
   );
 }
 
-function AddressBlock({ title, lines }: { title: string; lines: string[] }) {
+function AddressMiniBlock({ title, lines }: { title: string; lines: string[] }) {
   return (
-    <div className="rounded-2xl border border-freshpac-panel p-4">
-      <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">{title}</h2>
-      <div className="mt-3 text-sm leading-6 text-freshpac-charcoal">
+    <div>
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-freshpac-grey">{title}</p>
+      <div className="print-address-text mt-1 text-sm leading-5 text-freshpac-charcoal">
         {lines.map((line) => (
           <p key={line}>{line}</p>
         ))}
@@ -278,7 +493,11 @@ function AddressBlock({ title, lines }: { title: string; lines: string[] }) {
 
 function TotalRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className={`flex items-center justify-between gap-4 ${strong ? "text-lg font-black" : "font-semibold"}`}>
+    <div
+      className={`print-total-row flex items-center justify-between gap-4 ${
+        strong ? "print-total-row-strong text-lg font-black" : "font-semibold"
+      }`}
+    >
       <p>{label}</p>
       <p>{value}</p>
     </div>

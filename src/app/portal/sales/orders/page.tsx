@@ -50,6 +50,7 @@ export default async function OrdersPage({
   const q = searchParams?.q || "";
   const status = searchParams?.status || "ALL";
   const source = searchParams?.source || "ALL";
+  const batchPrintHref = buildBatchPrintHref({ q, status, source });
 
   const [orders, attentionOrders, stats] = await Promise.all([
     getOrderListFromDb({ q, status, source }),
@@ -74,10 +75,17 @@ export default async function OrdersPage({
                 </CardDescription>
               </div>
 
-              <LinkButton href="/portal/sales/orders/new" size="sm">
-                <Plus className="mr-2 size-4" />
-                New manual order
-              </LinkButton>
+              <div className="flex flex-wrap gap-2">
+                <LinkButton href={batchPrintHref} size="sm" variant="secondary">
+                  <Printer className="mr-2 size-4" />
+                  Print filtered
+                </LinkButton>
+
+                <LinkButton href="/portal/sales/orders/new" size="sm">
+                  <Plus className="mr-2 size-4" />
+                  New manual order
+                </LinkButton>
+              </div>
             </div>
           </CardHeader>
 
@@ -177,40 +185,59 @@ export default async function OrdersPage({
               <div className="grid gap-3">
                 {orders.map((order) => {
                   const reference = getOrderReference(order);
+                  const encodedReference = encodeURIComponent(reference);
                   const priceVisible = order.priceVisibilityAtOrder;
 
                   return (
-                    <Link
+                    <div
                       key={order.id}
-                      href={`/portal/sales/orders/${reference}`}
-                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm transition hover:border-freshpac-orange hover:bg-orange-50"
+                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{reference}</p>
-                          <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">{order.customer.siteName}</p>
-                          <p className="text-xs text-freshpac-grey">{order.customer.accountNumber}</p>
+                      <Link href={`/portal/sales/orders/${encodedReference}`} className="block transition hover:bg-orange-50">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{reference}</p>
+                            <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">{order.customer.siteName}</p>
+                            <p className="text-xs text-freshpac-grey">{order.customer.accountNumber}</p>
+                          </div>
+
+                          <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                         </div>
 
-                        <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
-                      </div>
+                        <div className="mt-3 flex flex-wrap gap-1">
+                          <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                          {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
+                          {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
+                          {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
+                        </div>
 
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
-                        {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
-                        {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
-                        {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
-                      </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <MobileDetail label="Date" value={formatDateTime(order.createdAt)} />
+                          <MobileDetail label="Delivery" value={order.deliveryDay || order.customer.deliveryDay || "Not set"} />
+                          <MobileDetail label="Driver" value={order.driverOrCourier || order.customer.driverOrCourier || "No driver"} />
+                          <MobileDetail label="Method" value={formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)} />
+                          <MobileDetail label="Total" value={formatOrderMoney(order.totalIncVatPence, priceVisible)} />
+                          <MobileDetail label="Lines" value={String(order.lines.length)} />
+                        </div>
+                      </Link>
 
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <MobileDetail label="Date" value={formatDateTime(order.createdAt)} />
-                        <MobileDetail label="Delivery" value={order.deliveryDay || order.customer.deliveryDay || "Not set"} />
-                        <MobileDetail label="Driver" value={order.driverOrCourier || order.customer.driverOrCourier || "No driver"} />
-                        <MobileDetail label="Method" value={formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)} />
-                        <MobileDetail label="Total" value={formatOrderMoney(order.totalIncVatPence, priceVisible)} />
-                        <MobileDetail label="Lines" value={String(order.lines.length)} />
+                        <Link
+                          href={`/portal/sales/orders/${encodedReference}`}
+                          className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:border-freshpac-orange hover:bg-orange-50"
+                        >
+                          Open
+                        </Link>
+
+                        <Link
+                          href={`/portal/sales/orders/${encodedReference}/print`}
+                          className="inline-flex items-center justify-center rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:bg-orange-400"
+                        >
+                          <Printer className="mr-2 size-3" />
+                          Print
+                        </Link>
                       </div>
-                    </Link>
+                    </div>
                   );
                 })}
 
@@ -237,19 +264,21 @@ export default async function OrdersPage({
                       <th>Total</th>
                       <th>Lines</th>
                       <th>Payment</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {orders.map((order) => {
                       const reference = getOrderReference(order);
+                      const encodedReference = encodeURIComponent(reference);
                       const priceVisible = order.priceVisibilityAtOrder;
 
                       return (
                         <tr key={order.id}>
                           <td>
                             <Link
-                              href={`/portal/sales/orders/${reference}`}
+                              href={`/portal/sales/orders/${encodedReference}`}
                               className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
                             >
                               {reference}
@@ -282,6 +311,24 @@ export default async function OrdersPage({
                               <Badge>Not required</Badge>
                             )}
                           </td>
+                          <td>
+                            <div className="flex min-w-40 flex-wrap gap-2">
+                              <Link
+                                href={`/portal/sales/orders/${encodedReference}`}
+                                className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+                              >
+                                Open
+                              </Link>
+
+                              <Link
+                                href={`/portal/sales/orders/${encodedReference}/print`}
+                                className="inline-flex items-center rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-black text-freshpac-charcoal hover:bg-orange-400"
+                              >
+                                <Printer className="mr-2 size-3" />
+                                Print
+                              </Link>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -302,17 +349,23 @@ export default async function OrdersPage({
           <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Processing actions</CardTitle>
-              <CardDescription>Print and process workflow placeholders.</CardDescription>
+              <CardDescription>Print current filtered orders, then process after confirming successful print.</CardDescription>
             </CardHeader>
 
             <CardContent className="grid gap-2">
-              <Button type="button">Print selected order sheets</Button>
+              <LinkButton href={batchPrintHref}>
+                <Printer className="mr-2 size-4" />
+                Print current filtered order sheets
+              </LinkButton>
+
               <Button type="button" variant="secondary">
                 Print coffee pick list
               </Button>
+
               <Button type="button" variant="secondary">
                 Print retail pick list
               </Button>
+
               <Button type="button" variant="secondary">
                 Confirm printed successfully
               </Button>
@@ -328,11 +381,12 @@ export default async function OrdersPage({
             <CardContent className="space-y-3">
               {attentionOrders.map((order) => {
                 const reference = getOrderReference(order);
+                const encodedReference = encodeURIComponent(reference);
 
                 return (
                   <Link
                     key={order.id}
-                    href={`/portal/sales/orders/${reference}`}
+                    href={`/portal/sales/orders/${encodedReference}`}
                     className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -384,6 +438,26 @@ function buildOrdersHref({
   const query = params.toString();
 
   return query ? `/portal/sales/orders?${query}` : "/portal/sales/orders";
+}
+
+function buildBatchPrintHref({
+  q,
+  status,
+  source
+}: {
+  q: string;
+  status: string;
+  source: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+  if (source && source !== "ALL") params.set("source", source);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/orders/print?${query}` : "/portal/sales/orders/print?status=NEEDS_PRINT";
 }
 
 function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {

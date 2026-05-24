@@ -50,6 +50,8 @@ export default async function OrderDetailPage({
   }
 
   const orderReference = getOrderReference(order);
+  const encodedOrderReference = encodeURIComponent(orderReference);
+  const printHref = `/portal/sales/orders/${encodedOrderReference}/print`;
   const priceVisible = order.priceVisibilityAtOrder;
   const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
   const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
@@ -71,6 +73,11 @@ export default async function OrderDetailPage({
         </Link>
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <LinkButton href={printHref} variant="secondary" size="sm">
+            <Printer className="mr-2 size-4" />
+            Print
+          </LinkButton>
+
           {order.status === "AWAITING_PAYMENT" ? (
             <form action={markOrderPaid}>
               <input type="hidden" name="orderId" value={order.id} />
@@ -104,10 +111,10 @@ export default async function OrderDetailPage({
             </form>
           ) : null}
 
-          <Button type="button" variant="secondary" size="sm">
+          <LinkButton href={printHref} variant="secondary" size="sm">
             <RotateCcw className="mr-2 size-4" />
             Reprint
-          </Button>
+          </LinkButton>
         </div>
       </div>
 
@@ -327,31 +334,31 @@ export default async function OrderDetailPage({
         <ModuleSection
           id="print"
           title="Print and process"
-          description="Order processing should only mark as processed after Freshpac confirms the PDFs printed successfully."
+          description="Open the printable order sheet, print it, then mark as processed only after print success is confirmed."
           action={
-            <form action={markOrderProcessed}>
-              <input type="hidden" name="orderId" value={order.id} />
-              <input type="hidden" name="reference" value={orderReference} />
-              <Button type="submit" size="sm">
-                <Printer className="mr-2 size-4" />
-                Confirm
-              </Button>
-            </form>
+            <LinkButton href={printHref} size="sm">
+              <Printer className="mr-2 size-4" />
+              Open print sheet
+            </LinkButton>
           }
         >
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Button type="button" variant="secondary">
+            <LinkButton href={printHref} variant="secondary">
               Order sheet PDF
-            </Button>
-            <Button type="button" variant="secondary">
+            </LinkButton>
+            <LinkButton href={printHref} variant="secondary">
               Delivery note PDF
-            </Button>
+            </LinkButton>
             <Button type="button" variant="secondary">
               Coffee pick list
             </Button>
-            <Button type="button" variant="secondary">
-              Confirm print success
-            </Button>
+            <form action={markOrderProcessed}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="reference" value={orderReference} />
+              <Button type="submit" className="w-full">
+                Confirm print success
+              </Button>
+            </form>
           </div>
 
           {order.status === "AWAITING_PAYMENT" ? (
