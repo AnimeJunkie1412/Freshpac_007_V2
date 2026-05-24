@@ -4,6 +4,7 @@ import { ArrowLeft, PackagePlus, Search, ShoppingBasket, Trash2 } from "lucide-r
 import {
   addManualOrderLine,
   removeManualOrderLine,
+  updateManualOrderLinePricing,
   updateManualOrderLineQuantity
 } from "@/app/portal/sales/orders/[reference]/add-line/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
@@ -22,7 +23,8 @@ import {
   getProductDescription,
   getProductDisplayName,
   getProductPriceExVatPence,
-  getProductVatRateBasisPoints
+  getProductVatRateBasisPoints,
+  inferVatRateBasisPointsFromLine
 } from "@/lib/sales/manual-order-lines-db";
 import {
   formatOrderLineSource,
@@ -84,7 +86,7 @@ export default async function AddManualOrderLinePage({
         </LinkButton>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[440px_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[460px_1fr]">
         <div className="grid content-start gap-4">
           <Card className="portal-card-safe">
             <CardHeader>
@@ -125,62 +127,96 @@ export default async function AddManualOrderLinePage({
             <CardHeader>
               <CardTitle>Current lines</CardTitle>
               <CardDescription>
-                Update quantities or remove lines before printing.
+                Update quantities, override prices or remove lines before printing.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-3">
-              {order.lines.map((line) => (
-                <div key={line.id} className="rounded-2xl border border-freshpac-panel bg-white p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
-                        {line.productCodeSnapshot}
-                      </p>
-                      <p className="mt-1 truncate text-sm font-black text-freshpac-charcoal">
-                        {line.descriptionSnapshot}
-                      </p>
-                      <p className="text-xs text-freshpac-grey">
-                        {line.packSizeSnapshot || "No pack size"} · {formatOrderLineSource(line.source)}
-                      </p>
+              {order.lines.map((line) => {
+                const inferredVatRate = inferVatRateBasisPointsFromLine(line);
+
+                return (
+                  <div key={line.id} className="rounded-2xl border border-freshpac-panel bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">
+                          {line.productCodeSnapshot}
+                        </p>
+                        <p className="mt-1 truncate text-sm font-black text-freshpac-charcoal">
+                          {line.descriptionSnapshot}
+                        </p>
+                        <p className="text-xs text-freshpac-grey">
+                          {line.packSizeSnapshot || "No pack size"} · {formatOrderLineSource(line.source)}
+                        </p>
+                      </div>
+
+                      <Badge>{line.quantity}</Badge>
                     </div>
 
-                    <Badge>{line.quantity}</Badge>
-                  </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <MiniDetail label="Unit ex VAT" value={formatOrderMoney(line.priceExVatPence, true)} />
+                      <MiniDetail label="VAT" value={`${formatOrderMoney(line.vatPence, true)} · ${formatVatRate(inferredVatRate)}`} />
+                      <MiniDetail label="Unit inc VAT" value={formatOrderMoney(line.priceIncVatPence, true)} />
+                      <MiniDetail label="Line total" value={formatOrderMoney(line.lineTotalPence, true)} />
+                    </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <MiniDetail label="Unit" value={formatOrderMoney(line.priceIncVatPence, true)} />
-                    <MiniDetail label="Total" value={formatOrderMoney(line.lineTotalPence, true)} />
-                  </div>
-
-                  <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <form action={updateManualOrderLineQuantity} className="grid grid-cols-[1fr_auto] gap-2">
+                    <form action={updateManualOrderLinePricing} className="mt-3 grid gap-2">
                       <input type="hidden" name="orderReference" value={orderReference} />
                       <input type="hidden" name="lineId" value={line.id} />
                       <input type="hidden" name="q" value={q} />
-                      <Input
-                        name="quantity"
-                        type="number"
-                        min={1}
-                        defaultValue={line.quantity}
-                      />
-                      <Button type="submit" variant="secondary">
-                        Update
-                      </Button>
-                    </form>
 
-                    <form action={removeManualOrderLine}>
-                      <input type="hidden" name="orderReference" value={orderReference} />
-                      <input type="hidden" name="lineId" value={line.id} />
-                      <input type="hidden" name="q" value={q} />
-                      <Button type="submit" variant="secondary" className="w-full">
-                        <Trash2 className="mr-2 size-4" />
-                        Remove
-                      </Button>
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <label className="block">
+                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+                            Qty
+                          </span>
+                          <Input
+                            name="quantity"
+                            type="number"
+                            min={1}
+                            defaultValue={line.quantity}
+                            className="mt-1"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+                            Unit ex VAT
+                          </span>
+                          <Input
+                            name="priceExVat"
+                            defaultValue={(line.priceExVatPence / 100).toFixed(2)}
+                            className="mt-1"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+                            VAT %
+                          </span>
+                          <Input
+                            name="vatRate"
+                            defaultValue={(inferredVatRate / 100).toFixed(2).replace(".00", "")}
+                            className="mt-1"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <Button type="submit" variant="secondary">
+                          Update line
+                        </Button>
+
+                        <LineRemoveButton
+                          orderReference={orderReference}
+                          lineId={line.id}
+                          q={q}
+                        />
+                      </div>
                     </form>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {!order.lines.length ? (
                 <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
@@ -236,7 +272,7 @@ export default async function AddManualOrderLinePage({
                     Showing {products.length} product option{products.length === 1 ? "" : "s"}.
                   </CardDescription>
                 </div>
-                <Badge tone="success">Default pricing</Badge>
+                <Badge tone="warning">Editable price</Badge>
               </div>
             </CardHeader>
 
@@ -263,10 +299,10 @@ export default async function AddManualOrderLinePage({
                         <th>Description</th>
                         <th>Group</th>
                         <th>Pack</th>
-                        <th>Ex VAT</th>
+                        <th>Default ex VAT</th>
                         <th>VAT</th>
-                        <th>Inc VAT</th>
-                        <th>Add</th>
+                        <th>Default inc VAT</th>
+                        <th>Add / override</th>
                       </tr>
                     </thead>
 
@@ -299,17 +335,31 @@ export default async function AddManualOrderLinePage({
                             </td>
                             <td className="font-black">{formatMoneyFromPence(priceIncVatPence)}</td>
                             <td>
-                              <form action={addManualOrderLine} className="flex min-w-36 items-center gap-2">
+                              <form action={addManualOrderLine} className="grid min-w-72 gap-2">
                                 <input type="hidden" name="orderReference" value={orderReference} />
                                 <input type="hidden" name="productId" value={product.id} />
                                 <input type="hidden" name="q" value={q} />
-                                <Input
-                                  name="quantity"
-                                  type="number"
-                                  min={1}
-                                  defaultValue={1}
-                                  className="h-9 w-20"
-                                />
+
+                                <div className="grid grid-cols-3 gap-2">
+                                  <Input
+                                    name="quantity"
+                                    type="number"
+                                    min={1}
+                                    defaultValue={1}
+                                    className="h-9"
+                                  />
+                                  <Input
+                                    name="priceExVat"
+                                    defaultValue={(priceExVatPence / 100).toFixed(2)}
+                                    className="h-9"
+                                  />
+                                  <Input
+                                    name="vatRate"
+                                    defaultValue={(vatRateBasisPoints / 100).toFixed(2).replace(".00", "")}
+                                    className="h-9"
+                                  />
+                                </div>
+
                                 <Button type="submit" size="sm">
                                   <PackagePlus className="mr-2 size-4" />
                                   Add
@@ -330,6 +380,28 @@ export default async function AddManualOrderLinePage({
         </div>
       </div>
     </PortalShell>
+  );
+}
+
+function LineRemoveButton({
+  orderReference,
+  lineId,
+  q
+}: {
+  orderReference: string;
+  lineId: string;
+  q: string;
+}) {
+  return (
+    <form action={removeManualOrderLine}>
+      <input type="hidden" name="orderReference" value={orderReference} />
+      <input type="hidden" name="lineId" value={lineId} />
+      <input type="hidden" name="q" value={q} />
+      <Button type="submit" variant="secondary" className="w-full">
+        <Trash2 className="mr-2 size-4" />
+        Remove
+      </Button>
+    </form>
   );
 }
 
@@ -372,19 +444,51 @@ function ProductCard({
         <MiniDetail label="Status" value={String((product as any).status || "Unknown")} />
       </div>
 
-      <form action={addManualOrderLine} className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+      <form action={addManualOrderLine} className="mt-3 grid gap-2">
         <input type="hidden" name="orderReference" value={orderReference} />
         <input type="hidden" name="productId" value={product.id} />
         <input type="hidden" name="q" value={q} />
-        <Input
-          name="quantity"
-          type="number"
-          min={1}
-          defaultValue={1}
-        />
+
+        <div className="grid grid-cols-3 gap-2">
+          <label className="block">
+            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+              Qty
+            </span>
+            <Input
+              name="quantity"
+              type="number"
+              min={1}
+              defaultValue={1}
+              className="mt-1"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+              Ex VAT
+            </span>
+            <Input
+              name="priceExVat"
+              defaultValue={(priceExVatPence / 100).toFixed(2)}
+              className="mt-1"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+              VAT %
+            </span>
+            <Input
+              name="vatRate"
+              defaultValue={(vatRateBasisPoints / 100).toFixed(2).replace(".00", "")}
+              className="mt-1"
+            />
+          </label>
+        </div>
+
         <Button type="submit">
           <PackagePlus className="mr-2 size-4" />
-          Add
+          Add line
         </Button>
       </form>
     </div>

@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   addManualOrderLineFromDb,
+  parseMoneyToPence,
+  parseVatPercentToBasisPoints,
   removeManualOrderLineFromDb,
+  updateManualOrderLinePricingFromDb,
   updateManualOrderLineQuantityFromDb
 } from "@/lib/sales/manual-order-lines-db";
 
@@ -13,11 +16,17 @@ export async function addManualOrderLine(formData: FormData) {
   const productId = readRequiredFormValue(formData, "productId");
   const q = String(formData.get("q") || "");
   const quantity = Number(formData.get("quantity") || 1);
+  const priceExVatPence = parseMoneyToPence(String(formData.get("priceExVat") || ""));
+  const vatRateBasisPoints = parseVatPercentToBasisPoints(String(formData.get("vatRate") || ""));
 
   await addManualOrderLineFromDb({
     orderReference,
     productId,
-    quantity
+    quantity,
+    pricing: {
+      priceExVatPence,
+      vatRateBasisPoints
+    }
   });
 
   revalidateManualOrderPaths(orderReference);
@@ -35,6 +44,27 @@ export async function updateManualOrderLineQuantity(formData: FormData) {
     orderReference,
     lineId,
     quantity
+  });
+
+  revalidateManualOrderPaths(orderReference);
+
+  redirectToAddLine(orderReference, q);
+}
+
+export async function updateManualOrderLinePricing(formData: FormData) {
+  const orderReference = readRequiredFormValue(formData, "orderReference");
+  const lineId = readRequiredFormValue(formData, "lineId");
+  const q = String(formData.get("q") || "");
+  const quantity = Number(formData.get("quantity") || 1);
+  const priceExVatPence = parseMoneyToPence(String(formData.get("priceExVat") || ""));
+  const vatRateBasisPoints = parseVatPercentToBasisPoints(String(formData.get("vatRate") || ""));
+
+  await updateManualOrderLinePricingFromDb({
+    orderReference,
+    lineId,
+    quantity,
+    priceExVatPence: priceExVatPence ?? 0,
+    vatRateBasisPoints: vatRateBasisPoints ?? 0
   });
 
   revalidateManualOrderPaths(orderReference);

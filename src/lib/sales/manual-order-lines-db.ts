@@ -4,6 +4,11 @@ export type ManualOrderProductFilters = {
   q?: string;
 };
 
+export type ManualOrderLinePricingInput = {
+  priceExVatPence?: number | null;
+  vatRateBasisPoints?: number | null;
+};
+
 export function formatMoneyFromPence(value?: number | null) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -21,6 +26,53 @@ export function calculatePriceIncVatPence(priceExVatPence: number, vatRateBasisP
 
 export function formatVatRate(vatRateBasisPoints?: number | null) {
   return `${((vatRateBasisPoints || 0) / 100).toFixed(2).replace(".00", "")}%`;
+}
+
+export function parseMoneyToPence(value?: string | null) {
+  const cleaned = String(value || "")
+    .replace(/[£,\s]/g, "")
+    .trim();
+
+  if (!cleaned) {
+    return null;
+  }
+
+  const amount = Number(cleaned);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    return null;
+  }
+
+  return Math.round(amount * 100);
+}
+
+export function parseVatPercentToBasisPoints(value?: string | null) {
+  const cleaned = String(value || "")
+    .replace(/[%\s]/g, "")
+    .trim();
+
+  if (!cleaned) {
+    return null;
+  }
+
+  const amount = Number(cleaned);
+
+  if (!Number.isFinite(amount) || amount < 0) {
+    return null;
+  }
+
+  return Math.round(amount * 100);
+}
+
+export function inferVatRateBasisPointsFromLine(line: {
+  priceExVatPence: number;
+  vatPence: number;
+}) {
+  if (!line.priceExVatPence) {
+    return 0;
+  }
+
+  return Math.round((line.vatPence / line.priceExVatPence) * 10000);
 }
 
 export function getProductDescription(product: any) {
@@ -117,11 +169,13 @@ export async function getManualOrderProductOptionsFromDb(filters?: ManualOrderPr
 export async function addManualOrderLineFromDb({
   orderReference,
   productId,
-  quantity
+  quantity,
+  pricing
 }: {
   orderReference: string;
   productId: string;
   quantity: number;
+  pricing?: ManualOrderLinePricingInput;
 }) {
   const safeQuantity = normaliseQuantity(quantity);
 
@@ -155,8 +209,19 @@ export async function addManualOrderLineFromDb({
     throw new Error("Product was not found.");
   }
 
-  const priceExVatPence = getProductPriceExVatPence(product);
-  const vatRateBasisPoints = getProductVatRateBasisPoints(product);
+  const defaultPriceExVatPence = getProductPriceExVatPence(product);
+  const defaultVatRateBasisPoints = getProductVatRateBasisPoints(product);
+
+  const priceExVatPence =
+    typeof pricing?.priceExVatPence === "number" && pricing.priceExVatPence >= 0
+      ? pricing.priceExVatPence
+      : defaultPriceExVatPence;
+
+  const vatRateBasisPoints =
+    typeof pricing?.vatRateBasisPoints === "number" && pricing.vatRateBasisPoints >= 0
+      ? pricing.vatRateBasisPoints
+      : defaultVatRateBasisPoints;
+
   const vatPence = calculateVatAmountPence(priceExVatPence, vatRateBasisPoints);
   const priceIncVatPence = calculatePriceIncVatPence(priceExVatPence, vatRateBasisPoints);
   const lineTotalPence = priceIncVatPence * safeQuantity;
@@ -208,6 +273,46 @@ export async function updateManualOrderLineQuantityFromDb({
     data: {
       quantity: safeQuantity,
       lineTotalPence: line.priceIncVatPence * safeQuantity
+    }
+  });
+
+  await recalculateOrderTotals(order.id);
+
+  return order;
+}
+
+export async function updateManualOrderLinePricingFromDb({
+  orderReference,
+  lineId,
+  quantity,
+  priceExVatPence,
+  vatRateBasisPoints
+}: {
+  orderReference: string;
+  lineId: string;
+  quantity: number;
+  priceExVatPence: number;
+  vatRateBasisPoints: number;
+}) {
+  const safeQuantity = normaliseQuantity(quantity);
+  const safePriceExVatPence = Math.max(0, Math.round(priceExVatPence || 0));
+  const safeVatRateBasisPoints = Math.max(0, Math.round(vatRateBasisPoints || 0));
+  const order = await getManualOrderWithLineOrThrow(orderReference, lineId);
+
+  const vatPence = calculateVatAmountPence(safePriceExVatPence, safeVatRateBasisPoints);
+  const priceIncVatPence = calculatePriceIncVatPence(safePriceExVatPence, safeVatRateBasisPoints);
+  const lineTotalPence = priceIncVatPence * safeQuantity;
+
+  await prisma.orderLine.update({
+    where: {
+      id: lineId
+    },
+    data: {
+      quantity: safeQuantity,
+      priceExVatPence: safePriceExVatPence,
+      vatPence,
+      priceIncVatPence,
+      lineTotalPence
     }
   });
 
