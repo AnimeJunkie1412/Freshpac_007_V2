@@ -4,8 +4,7 @@ import { ArrowLeft, PackagePlus, Search, ShoppingBasket, Trash2 } from "lucide-r
 import {
   addManualOrderLine,
   removeManualOrderLine,
-  updateManualOrderLinePricing,
-  updateManualOrderLineQuantity
+  updateManualOrderLinePricing
 } from "@/app/portal/sales/orders/[reference]/add-line/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
@@ -20,9 +19,11 @@ import {
   getManualOrderForLineEditFromDb,
   getManualOrderProductOptionsFromDb,
   getOrderReferenceForManualLines,
+  getProductDefaultPriceExVatPence,
   getProductDescription,
   getProductDisplayName,
-  getProductPriceExVatPence,
+  getProductEffectivePriceExVatPence,
+  getProductPricingSource,
   getProductVatRateBasisPoints,
   inferVatRateBasisPointsFromLine
 } from "@/lib/sales/manual-order-lines-db";
@@ -52,14 +53,16 @@ export default async function AddManualOrderLinePage({
   const decodedReference = decodeURIComponent(reference);
   const q = searchParams?.q || "";
 
-  const [order, products] = await Promise.all([
-    getManualOrderForLineEditFromDb(decodedReference),
-    getManualOrderProductOptionsFromDb({ q })
-  ]);
+  const order = await getManualOrderForLineEditFromDb(decodedReference);
 
   if (!order) {
     notFound();
   }
+
+  const products = await getManualOrderProductOptionsFromDb({
+    q,
+    customerId: order.customerId
+  });
 
   const orderReference = getOrderReferenceForManualLines(order);
   const encodedOrderReference = encodeURIComponent(orderReference);
@@ -160,60 +163,64 @@ export default async function AddManualOrderLinePage({
                       <MiniDetail label="Line total" value={formatOrderMoney(line.lineTotalPence, true)} />
                     </div>
 
-                    <form action={updateManualOrderLinePricing} className="mt-3 grid gap-2">
-                      <input type="hidden" name="orderReference" value={orderReference} />
-                      <input type="hidden" name="lineId" value={line.id} />
-                      <input type="hidden" name="q" value={q} />
+                    <div className="mt-3 grid gap-2">
+                      <form action={updateManualOrderLinePricing} className="grid gap-2">
+                        <input type="hidden" name="orderReference" value={orderReference} />
+                        <input type="hidden" name="lineId" value={line.id} />
+                        <input type="hidden" name="q" value={q} />
 
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        <label className="block">
-                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
-                            Qty
-                          </span>
-                          <Input
-                            name="quantity"
-                            type="number"
-                            min={1}
-                            defaultValue={line.quantity}
-                            className="mt-1"
-                          />
-                        </label>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <label className="block">
+                            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+                              Qty
+                            </span>
+                            <Input
+                              name="quantity"
+                              type="number"
+                              min={1}
+                              defaultValue={line.quantity}
+                              className="mt-1"
+                            />
+                          </label>
 
-                        <label className="block">
-                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
-                            Unit ex VAT
-                          </span>
-                          <Input
-                            name="priceExVat"
-                            defaultValue={(line.priceExVatPence / 100).toFixed(2)}
-                            className="mt-1"
-                          />
-                        </label>
+                          <label className="block">
+                            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+                              Unit ex VAT
+                            </span>
+                            <Input
+                              name="priceExVat"
+                              defaultValue={(line.priceExVatPence / 100).toFixed(2)}
+                              className="mt-1"
+                            />
+                          </label>
 
-                        <label className="block">
-                          <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
-                            VAT %
-                          </span>
-                          <Input
-                            name="vatRate"
-                            defaultValue={(inferredVatRate / 100).toFixed(2).replace(".00", "")}
-                            className="mt-1"
-                          />
-                        </label>
-                      </div>
+                          <label className="block">
+                            <span className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
+                              VAT %
+                            </span>
+                            <Input
+                              name="vatRate"
+                              defaultValue={(inferredVatRate / 100).toFixed(2).replace(".00", "")}
+                              className="mt-1"
+                            />
+                          </label>
+                        </div>
 
-                      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
                         <Button type="submit" variant="secondary">
                           Update line
                         </Button>
+                      </form>
 
-                        <LineRemoveButton
-                          orderReference={orderReference}
-                          lineId={line.id}
-                          q={q}
-                        />
-                      </div>
-                    </form>
+                      <form action={removeManualOrderLine}>
+                        <input type="hidden" name="orderReference" value={orderReference} />
+                        <input type="hidden" name="lineId" value={line.id} />
+                        <input type="hidden" name="q" value={q} />
+                        <Button type="submit" variant="secondary" className="w-full">
+                          <Trash2 className="mr-2 size-4" />
+                          Remove
+                        </Button>
+                      </form>
+                    </div>
                   </div>
                 );
               })}
@@ -272,7 +279,7 @@ export default async function AddManualOrderLinePage({
                     Showing {products.length} product option{products.length === 1 ? "" : "s"}.
                   </CardDescription>
                 </div>
-                <Badge tone="warning">Editable price</Badge>
+                <Badge tone="warning">Customer pricing checked</Badge>
               </div>
             </CardHeader>
 
@@ -280,7 +287,7 @@ export default async function AddManualOrderLinePage({
               <div className="grid gap-3 p-3 md:hidden">
                 {products.map((product: ProductOption) => (
                   <ProductCard
-                    key={product.id}
+                    key={(product as any).id}
                     product={product}
                     orderReference={orderReference}
                     q={q}
@@ -300,21 +307,24 @@ export default async function AddManualOrderLinePage({
                         <th>Group</th>
                         <th>Pack</th>
                         <th>Default ex VAT</th>
+                        <th>Using ex VAT</th>
                         <th>VAT</th>
-                        <th>Default inc VAT</th>
+                        <th>Using inc VAT</th>
                         <th>Add / override</th>
                       </tr>
                     </thead>
 
                     <tbody>
                       {products.map((product: ProductOption) => {
-                        const priceExVatPence = getProductPriceExVatPence(product);
+                        const defaultPriceExVatPence = getProductDefaultPriceExVatPence(product);
+                        const effectivePriceExVatPence = getProductEffectivePriceExVatPence(product);
+                        const pricingSource = getProductPricingSource(product);
                         const vatRateBasisPoints = getProductVatRateBasisPoints(product);
-                        const vatPence = calculateVatAmountPence(priceExVatPence, vatRateBasisPoints);
-                        const priceIncVatPence = calculatePriceIncVatPence(priceExVatPence, vatRateBasisPoints);
+                        const vatPence = calculateVatAmountPence(effectivePriceExVatPence, vatRateBasisPoints);
+                        const priceIncVatPence = calculatePriceIncVatPence(effectivePriceExVatPence, vatRateBasisPoints);
 
                         return (
-                          <tr key={product.id}>
+                          <tr key={(product as any).id}>
                             <td className="font-black">{(product as any).code}</td>
                             <td>
                               <div className="font-bold text-freshpac-charcoal">
@@ -326,7 +336,15 @@ export default async function AddManualOrderLinePage({
                             </td>
                             <td>{(product as any).productGroup || "None"}</td>
                             <td>{(product as any).packSize || "None"}</td>
-                            <td>{formatMoneyFromPence(priceExVatPence)}</td>
+                            <td>{formatMoneyFromPence(defaultPriceExVatPence)}</td>
+                            <td>
+                              <div className="font-black text-freshpac-charcoal">
+                                {formatMoneyFromPence(effectivePriceExVatPence)}
+                              </div>
+                              <Badge tone={pricingSource === "Customer" ? "success" : "neutral"}>
+                                {pricingSource}
+                              </Badge>
+                            </td>
                             <td>
                               {formatMoneyFromPence(vatPence)}
                               <div className="text-xs text-freshpac-grey">
@@ -337,7 +355,7 @@ export default async function AddManualOrderLinePage({
                             <td>
                               <form action={addManualOrderLine} className="grid min-w-72 gap-2">
                                 <input type="hidden" name="orderReference" value={orderReference} />
-                                <input type="hidden" name="productId" value={product.id} />
+                                <input type="hidden" name="productId" value={(product as any).id} />
                                 <input type="hidden" name="q" value={q} />
 
                                 <div className="grid grid-cols-3 gap-2">
@@ -350,7 +368,7 @@ export default async function AddManualOrderLinePage({
                                   />
                                   <Input
                                     name="priceExVat"
-                                    defaultValue={(priceExVatPence / 100).toFixed(2)}
+                                    defaultValue={(effectivePriceExVatPence / 100).toFixed(2)}
                                     className="h-9"
                                   />
                                   <Input
@@ -383,28 +401,6 @@ export default async function AddManualOrderLinePage({
   );
 }
 
-function LineRemoveButton({
-  orderReference,
-  lineId,
-  q
-}: {
-  orderReference: string;
-  lineId: string;
-  q: string;
-}) {
-  return (
-    <form action={removeManualOrderLine}>
-      <input type="hidden" name="orderReference" value={orderReference} />
-      <input type="hidden" name="lineId" value={lineId} />
-      <input type="hidden" name="q" value={q} />
-      <Button type="submit" variant="secondary" className="w-full">
-        <Trash2 className="mr-2 size-4" />
-        Remove
-      </Button>
-    </form>
-  );
-}
-
 function ProductCard({
   product,
   orderReference,
@@ -414,10 +410,12 @@ function ProductCard({
   orderReference: string;
   q: string;
 }) {
-  const priceExVatPence = getProductPriceExVatPence(product);
+  const defaultPriceExVatPence = getProductDefaultPriceExVatPence(product);
+  const effectivePriceExVatPence = getProductEffectivePriceExVatPence(product);
+  const pricingSource = getProductPricingSource(product);
   const vatRateBasisPoints = getProductVatRateBasisPoints(product);
-  const vatPence = calculateVatAmountPence(priceExVatPence, vatRateBasisPoints);
-  const priceIncVatPence = calculatePriceIncVatPence(priceExVatPence, vatRateBasisPoints);
+  const vatPence = calculateVatAmountPence(effectivePriceExVatPence, vatRateBasisPoints);
+  const priceIncVatPence = calculatePriceIncVatPence(effectivePriceExVatPence, vatRateBasisPoints);
 
   return (
     <div className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm">
@@ -434,19 +432,21 @@ function ProductCard({
           </p>
         </div>
 
-        <Badge>{(product as any).productGroup || "Product"}</Badge>
+        <Badge tone={pricingSource === "Customer" ? "success" : "neutral"}>
+          {pricingSource}
+        </Badge>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <MiniDetail label="Ex VAT" value={formatMoneyFromPence(priceExVatPence)} />
+        <MiniDetail label="Default ex VAT" value={formatMoneyFromPence(defaultPriceExVatPence)} />
+        <MiniDetail label="Using ex VAT" value={formatMoneyFromPence(effectivePriceExVatPence)} />
         <MiniDetail label="VAT" value={`${formatMoneyFromPence(vatPence)} · ${formatVatRate(vatRateBasisPoints)}`} />
         <MiniDetail label="Inc VAT" value={formatMoneyFromPence(priceIncVatPence)} />
-        <MiniDetail label="Status" value={String((product as any).status || "Unknown")} />
       </div>
 
       <form action={addManualOrderLine} className="mt-3 grid gap-2">
         <input type="hidden" name="orderReference" value={orderReference} />
-        <input type="hidden" name="productId" value={product.id} />
+        <input type="hidden" name="productId" value={(product as any).id} />
         <input type="hidden" name="q" value={q} />
 
         <div className="grid grid-cols-3 gap-2">
@@ -469,7 +469,7 @@ function ProductCard({
             </span>
             <Input
               name="priceExVat"
-              defaultValue={(priceExVatPence / 100).toFixed(2)}
+              defaultValue={(effectivePriceExVatPence / 100).toFixed(2)}
               className="mt-1"
             />
           </label>

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export type ManualOrderProductFilters = {
   q?: string;
+  customerId?: string;
 };
 
 export type ManualOrderLinePricingInput = {
@@ -83,8 +84,29 @@ export function getProductDisplayName(product: any) {
   return product.name || product.productName || product.description || product.code || "Unnamed product";
 }
 
-export function getProductPriceExVatPence(product: any) {
+export function getProductDefaultPriceExVatPence(product: any) {
   return Number(product.priceExVatPence || 0);
+}
+
+export function getProductCustomerPriceExVatPence(product: any) {
+  const customerPrices = Array.isArray(product.customerPrices) ? product.customerPrices : [];
+  const customerPrice = customerPrices[0];
+
+  if (!customerPrice) {
+    return null;
+  }
+
+  const value = Number(customerPrice.priceExVatPence);
+
+  return Number.isFinite(value) ? value : null;
+}
+
+export function getProductEffectivePriceExVatPence(product: any) {
+  return getProductCustomerPriceExVatPence(product) ?? getProductDefaultPriceExVatPence(product);
+}
+
+export function getProductPricingSource(product: any) {
+  return getProductCustomerPriceExVatPence(product) === null ? "Default" : "Customer";
 }
 
 export function getProductVatRateBasisPoints(product: any) {
@@ -123,6 +145,7 @@ export async function getManualOrderForLineEditFromDb(reference: string) {
 
 export async function getManualOrderProductOptionsFromDb(filters?: ManualOrderProductFilters) {
   const q = filters?.q?.trim();
+  const customerId = filters?.customerId?.trim();
 
   const where: any = q
     ? {
@@ -155,7 +178,7 @@ export async function getManualOrderProductOptionsFromDb(filters?: ManualOrderPr
       }
     : {};
 
-  return prisma.product.findMany({
+  const query: any = {
     where,
     orderBy: [
       {
@@ -163,7 +186,20 @@ export async function getManualOrderProductOptionsFromDb(filters?: ManualOrderPr
       }
     ],
     take: 60
-  });
+  };
+
+  if (customerId) {
+    query.include = {
+      customerPrices: {
+        where: {
+          customerId
+        },
+        take: 1
+      }
+    };
+  }
+
+  return prisma.product.findMany(query);
 }
 
 export async function addManualOrderLineFromDb({
@@ -209,18 +245,22 @@ export async function addManualOrderLineFromDb({
     throw new Error("Product was not found.");
   }
 
-  const defaultPriceExVatPence = getProductPriceExVatPence(product);
+  const defaultPriceExVatPence = getProductDefaultPriceExVatPence(product);
+  const customerPriceExVatPence = await getCustomerSpecificPriceExVatPence(order.customerId, product.id);
   const defaultVatRateBasisPoints = getProductVatRateBasisPoints(product);
 
-  const priceExVatPence =
+  const manualPriceExVatPence =
     typeof pricing?.priceExVatPence === "number" && pricing.priceExVatPence >= 0
       ? pricing.priceExVatPence
-      : defaultPriceExVatPence;
+      : null;
 
-  const vatRateBasisPoints =
+  const manualVatRateBasisPoints =
     typeof pricing?.vatRateBasisPoints === "number" && pricing.vatRateBasisPoints >= 0
       ? pricing.vatRateBasisPoints
-      : defaultVatRateBasisPoints;
+      : null;
+
+  const priceExVatPence = manualPriceExVatPence ?? customerPriceExVatPence ?? defaultPriceExVatPence;
+  const vatRateBasisPoints = manualVatRateBasisPoints ?? defaultVatRateBasisPoints;
 
   const vatPence = calculateVatAmountPence(priceExVatPence, vatRateBasisPoints);
   const priceIncVatPence = calculatePriceIncVatPence(priceExVatPence, vatRateBasisPoints);
@@ -380,6 +420,32 @@ export async function recalculateOrderTotals(orderId: string) {
       totalIncVatPence
     }
   });
+}
+
+async function getCustomerSpecificPriceExVatPence(customerId: string, productId: string) {
+  const customerPriceDelegate = (prisma as any).customerPrice;
+
+  if (!customerPriceDelegate?.findFirst) {
+    return null;
+  }
+
+  const customerPrice = await customerPriceDelegate.findFirst({
+    where: {
+      customerId,
+      productId
+    },
+    select: {
+      priceExVatPence: true
+    }
+  });
+
+  if (!customerPrice) {
+    return null;
+  }
+
+  const value = Number(customerPrice.priceExVatPence);
+
+  return Number.isFinite(value) ? value : null;
 }
 
 async function getManualOrderWithLineOrThrow(orderReference: string, lineId: string) {
