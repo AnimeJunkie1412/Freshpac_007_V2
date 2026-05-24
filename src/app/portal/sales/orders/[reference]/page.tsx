@@ -52,6 +52,7 @@ export default async function OrderDetailPage({
   const orderReference = getOrderReference(order);
   const encodedOrderReference = encodeURIComponent(orderReference);
   const printHref = `/portal/sales/orders/${encodedOrderReference}/print`;
+  const deliveryNoteHref = `/portal/sales/orders/${encodedOrderReference}/delivery-note`;
   const priceVisible = order.priceVisibilityAtOrder;
   const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
   const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
@@ -76,6 +77,11 @@ export default async function OrderDetailPage({
           <LinkButton href={printHref} variant="secondary" size="sm">
             <Printer className="mr-2 size-4" />
             Print
+          </LinkButton>
+
+          <LinkButton href={deliveryNoteHref} variant="secondary" size="sm">
+            <Truck className="mr-2 size-4" />
+            Delivery note
           </LinkButton>
 
           {order.status === "AWAITING_PAYMENT" ? (
@@ -180,10 +186,10 @@ export default async function OrderDetailPage({
           title="Overview"
           description="Order status, totals and processing state."
           action={
-            <Button type="button" variant="secondary" size="sm">
+            <LinkButton href={deliveryNoteHref} variant="secondary" size="sm">
               <Truck className="mr-2 size-4" />
-              Delivery
-            </Button>
+              Delivery note
+            </LinkButton>
           }
         >
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -334,7 +340,7 @@ export default async function OrderDetailPage({
         <ModuleSection
           id="print"
           title="Print and process"
-          description="Open the printable order sheet, print it, then mark as processed only after print success is confirmed."
+          description="Open the printable order sheet or price-free delivery note, then mark as processed only after print success is confirmed."
           action={
             <LinkButton href={printHref} size="sm">
               <Printer className="mr-2 size-4" />
@@ -346,7 +352,7 @@ export default async function OrderDetailPage({
             <LinkButton href={printHref} variant="secondary">
               Order sheet PDF
             </LinkButton>
-            <LinkButton href={printHref} variant="secondary">
+            <LinkButton href={deliveryNoteHref} variant="secondary">
               Delivery note PDF
             </LinkButton>
             <Button type="button" variant="secondary">
