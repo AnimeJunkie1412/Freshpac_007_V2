@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote, ClipboardList, Coffee, Filter, ListChecks, Plus, Printer, Search, ShoppingBag, Truck, WifiOff } from "lucide-react";
+import { Banknote, ClipboardList, Coffee, FileText, Filter, ListChecks, Plus, Printer, Search, ShoppingBag, Truck, WifiOff } from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -51,6 +51,7 @@ export default async function OrdersPage({
   const status = searchParams?.status || "ALL";
   const source = searchParams?.source || "ALL";
   const batchPrintHref = buildBatchPrintHref({ q, status, source });
+  const batchDeliveryNotesHref = buildBatchDeliveryNotesHref({ q, status, source });
   const pickListHref = buildPickListHref({ q, status, source });
   const coffeePickListHref = buildCoffeePickListHref({ q, status, source });
   const retailPickListHref = buildRetailPickListHref({ q, status, source });
@@ -373,13 +374,18 @@ export default async function OrdersPage({
           <Card className="portal-card-safe">
             <CardHeader>
               <CardTitle>Processing actions</CardTitle>
-              <CardDescription>Print order sheets and pick lists from the current filtered result set.</CardDescription>
+              <CardDescription>Print order sheets, delivery notes and pick lists from the current filtered result set.</CardDescription>
             </CardHeader>
 
             <CardContent className="grid gap-2">
               <LinkButton href={batchPrintHref}>
                 <Printer className="mr-2 size-4" />
                 Print current filtered order sheets
+              </LinkButton>
+
+              <LinkButton href={batchDeliveryNotesHref} variant="secondary">
+                <FileText className="mr-2 size-4" />
+                Print current filtered delivery notes
               </LinkButton>
 
               <LinkButton href={pickListHref} variant="secondary">
@@ -485,6 +491,26 @@ function buildBatchPrintHref({
   const query = params.toString();
 
   return query ? `/portal/sales/orders/print?${query}` : "/portal/sales/orders/print?status=NEEDS_PRINT";
+}
+
+function buildBatchDeliveryNotesHref({
+  q,
+  status,
+  source
+}: {
+  q: string;
+  status: string;
+  source: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (status && status !== "ALL") params.set("status", status);
+  if (source && source !== "ALL") params.set("source", source);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/orders/delivery-notes?${query}` : "/portal/sales/orders/delivery-notes?status=NEEDS_PRINT";
 }
 
 function buildPickListHref({
