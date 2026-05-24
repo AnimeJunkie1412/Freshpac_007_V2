@@ -1,0 +1,225 @@
+import { prisma } from "@/lib/prisma";
+
+export type ManualOrderProductFilters = {
+  q?: string;
+};
+
+export function formatMoneyFromPence(value?: number | null) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency: "GBP"
+  }).format((value || 0) / 100);
+}
+
+export function calculateVatAmountPence(priceExVatPence: number, vatRateBasisPoints: number) {
+  return Math.round((priceExVatPence * vatRateBasisPoints) / 10000);
+}
+
+export function calculatePriceIncVatPence(priceExVatPence: number, vatRateBasisPoints: number) {
+  return priceExVatPence + calculateVatAmountPence(priceExVatPence, vatRateBasisPoints);
+}
+
+export function formatVatRate(vatRateBasisPoints?: number | null) {
+  return `${((vatRateBasisPoints || 0) / 100).toFixed(2).replace(".00", "")}%`;
+}
+
+export function getProductDescription(product: any) {
+  return product.description || product.name || product.productName || product.code || "Unnamed product";
+}
+
+export function getProductDisplayName(product: any) {
+  return product.name || product.productName || product.description || product.code || "Unnamed product";
+}
+
+export function getProductPriceExVatPence(product: any) {
+  return Number(product.priceExVatPence || 0);
+}
+
+export function getProductVatRateBasisPoints(product: any) {
+  return Number(product.vatRateBasisPoints || 0);
+}
+
+export function getOrderReferenceForManualLines(order: {
+  reference: string | null;
+  temporaryReference: string | null;
+}) {
+  return order.reference || order.temporaryReference || "";
+}
+
+export async function getManualOrderForLineEditFromDb(reference: string) {
+  return prisma.order.findFirst({
+    where: {
+      OR: [
+        {
+          reference
+        },
+        {
+          temporaryReference: reference
+        }
+      ]
+    },
+    include: {
+      customer: true,
+      lines: {
+        orderBy: {
+          createdAt: "asc"
+        }
+      }
+    }
+  });
+}
+
+export async function getManualOrderProductOptionsFromDb(filters?: ManualOrderProductFilters) {
+  const q = filters?.q?.trim();
+
+  const where: any = q
+    ? {
+        OR: [
+          {
+            code: {
+              contains: q,
+              mode: "insensitive"
+            }
+          },
+          {
+            description: {
+              contains: q,
+              mode: "insensitive"
+            }
+          },
+          {
+            productGroup: {
+              contains: q,
+              mode: "insensitive"
+            }
+          },
+          {
+            packSize: {
+              contains: q,
+              mode: "insensitive"
+            }
+          }
+        ]
+      }
+    : {};
+
+  return prisma.product.findMany({
+    where,
+    orderBy: [
+      {
+        code: "asc"
+      }
+    ],
+    take: 60
+  });
+}
+
+export async function addManualOrderLineFromDb({
+  orderReference,
+  productId,
+  quantity
+}: {
+  orderReference: string;
+  productId: string;
+  quantity: number;
+}) {
+  const safeQuantity = Math.max(1, Math.floor(quantity || 1));
+
+  const order = await prisma.order.findFirst({
+    where: {
+      OR: [
+        {
+          reference: orderReference
+        },
+        {
+          temporaryReference: orderReference
+        }
+      ]
+    },
+    include: {
+      customer: true
+    }
+  });
+
+  if (!order) {
+    throw new Error("Order was not found.");
+  }
+
+  const product = await prisma.product.findUnique({
+    where: {
+      id: productId
+    } as any
+  });
+
+  if (!product) {
+    throw new Error("Product was not found.");
+  }
+
+  const priceExVatPence = getProductPriceExVatPence(product);
+  const vatRateBasisPoints = getProductVatRateBasisPoints(product);
+  const vatPence = calculateVatAmountPence(priceExVatPence, vatRateBasisPoints);
+  const priceIncVatPence = calculatePriceIncVatPence(priceExVatPence, vatRateBasisPoints);
+  const lineTotalPence = priceIncVatPence * safeQuantity;
+
+  await prisma.orderLine.create({
+    data: {
+      orderId: order.id,
+      productId: product.id,
+      quantity: safeQuantity,
+      productCodeSnapshot: (product as any).code || "UNKNOWN",
+      descriptionSnapshot: getProductDescription(product),
+      packSizeSnapshot: (product as any).packSize || null,
+      priceExVatPence,
+      vatPence,
+      priceIncVatPence,
+      lineTotalPence,
+      source: "FRESHPAC_ADDED",
+      lockedFromCustomer: true
+    } as any
+  });
+
+  await recalculateOrderTotals(order.id);
+
+  return order;
+}
+
+export async function recalculateOrderTotals(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: {
+      id: orderId
+    },
+    include: {
+      lines: true
+    }
+  });
+
+  if (!order) {
+    throw new Error("Order was not found.");
+  }
+
+  const totalExVatPence = order.lines.reduce((total, line) => {
+    return total + line.priceExVatPence * line.quantity;
+  }, 0);
+
+  const vatTotalPence = order.lines.reduce((total, line) => {
+    return total + line.vatPence * line.quantity;
+  }, 0);
+
+  const lineTotalsIncVatPence = order.lines.reduce((total, line) => {
+    return total + line.lineTotalPence;
+  }, 0);
+
+  const carriageIncVatPence = order.carriageIncVatPence || 0;
+  const totalIncVatPence = lineTotalsIncVatPence + carriageIncVatPence;
+
+  return prisma.order.update({
+    where: {
+      id: orderId
+    },
+    data: {
+      totalExVatPence,
+      vatTotalPence,
+      totalIncVatPence
+    }
+  });
+}

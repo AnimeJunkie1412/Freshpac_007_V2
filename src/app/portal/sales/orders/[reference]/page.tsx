@@ -1,6 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Banknote, FileText, Printer, RotateCcw, Truck, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Banknote,
+  FileText,
+  PackagePlus,
+  Printer,
+  RotateCcw,
+  Truck,
+  XCircle
+} from "lucide-react";
 import {
   cancelOrder,
   markOrderPaid,
@@ -53,6 +62,7 @@ export default async function OrderDetailPage({
   const encodedOrderReference = encodeURIComponent(orderReference);
   const printHref = `/portal/sales/orders/${encodedOrderReference}/print`;
   const deliveryNoteHref = `/portal/sales/orders/${encodedOrderReference}/delivery-note`;
+  const addLineHref = `/portal/sales/orders/${encodedOrderReference}/add-line`;
   const priceVisible = order.priceVisibilityAtOrder;
   const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
   const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
@@ -74,6 +84,11 @@ export default async function OrderDetailPage({
         </Link>
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <LinkButton href={addLineHref} variant="secondary" size="sm">
+            <PackagePlus className="mr-2 size-4" />
+            Add line
+          </LinkButton>
+
           <LinkButton href={printHref} variant="secondary" size="sm">
             <Printer className="mr-2 size-4" />
             Print
@@ -211,10 +226,10 @@ export default async function OrderDetailPage({
           title="Order lines"
           description="Staff view includes product codes. Customer-facing PDFs must respect price visibility."
           action={
-            <Button type="button" variant="secondary" size="sm">
-              <FileText className="mr-2 size-4" />
+            <LinkButton href={addLineHref} variant="secondary" size="sm">
+              <PackagePlus className="mr-2 size-4" />
               Add line
-            </Button>
+            </LinkButton>
           }
         >
           <div className="grid gap-3 md:hidden">
@@ -355,9 +370,9 @@ export default async function OrderDetailPage({
             <LinkButton href={deliveryNoteHref} variant="secondary">
               Delivery note PDF
             </LinkButton>
-            <Button type="button" variant="secondary">
-              Coffee pick list
-            </Button>
+            <LinkButton href={addLineHref} variant="secondary">
+              Add product line
+            </LinkButton>
             <form action={markOrderProcessed}>
               <input type="hidden" name="orderId" value={order.id} />
               <input type="hidden" name="reference" value={orderReference} />
