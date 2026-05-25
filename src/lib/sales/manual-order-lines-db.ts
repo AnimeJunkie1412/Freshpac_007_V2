@@ -14,6 +14,7 @@ export type ManualOrderPadRowInput = {
   productId: string;
   quantity: number;
   priceExVatPence?: number | null;
+  onShoppingList?: boolean;
 };
 
 export function formatMoneyFromPence(value?: number | null) {
@@ -119,6 +120,10 @@ export function getProductVatRateBasisPoints(product: any) {
   return Number(product.vatRateBasisPoints || 0);
 }
 
+export function productIsOnCustomerShoppingList(product: any) {
+  return Array.isArray(product.customerAccess) && product.customerAccess.length > 0;
+}
+
 export function getOrderReferenceForManualLines(order: {
   reference: string | null;
   temporaryReference: string | null;
@@ -189,6 +194,12 @@ export async function getCustomerOrderPadFromDb({
           customerId: order.customerId
         },
         take: 1
+      },
+      customerAccess: {
+        where: {
+          customerId: order.customerId
+        },
+        take: 1
       }
     },
     take: search ? 120 : 300
@@ -248,6 +259,12 @@ export async function getManualOrderProductOptionsFromDb(filters?: ManualOrderPr
   if (customerId) {
     query.include = {
       customerPrices: {
+        where: {
+          customerId
+        },
+        take: 1
+      },
+      customerAccess: {
         where: {
           customerId
         },
@@ -340,7 +357,7 @@ export async function addManualOrderLineFromDb({
     } as any
   });
 
-  await ensureProductOnCustomerShoppingList(order.customerId, product.id);
+  await setProductShoppingListAccess(order.customerId, product.id, true);
   await recalculateOrderTotals(order.id);
 
   return order;
@@ -381,7 +398,8 @@ export async function syncManualOrderPadFromDb({
       priceExVatPence:
         typeof row.priceExVatPence === "number" && row.priceExVatPence >= 0
           ? Math.round(row.priceExVatPence)
-          : null
+          : null,
+      onShoppingList: Boolean(row.onShoppingList)
     }))
     .filter((row) => row.productId);
 
@@ -399,6 +417,12 @@ export async function syncManualOrderPadFromDb({
     },
     include: {
       customerPrices: {
+        where: {
+          customerId: order.customerId
+        },
+        take: 1
+      },
+      customerAccess: {
         where: {
           customerId: order.customerId
         },
@@ -424,6 +448,9 @@ export async function syncManualOrderPadFromDb({
     }
 
     const existingLine = existingLineByProductId.get(row.productId);
+    const shouldBeOnShoppingList = row.onShoppingList || row.quantity > 0;
+
+    await setProductShoppingListAccess(order.customerId, row.productId, shouldBeOnShoppingList);
 
     if (row.quantity <= 0) {
       if (existingLine) {
@@ -483,8 +510,6 @@ export async function syncManualOrderPadFromDb({
         } as any
       });
     }
-
-    await ensureProductOnCustomerShoppingList(order.customerId, product.id);
   }
 
   await recalculateOrderTotals(order.id);
@@ -745,41 +770,46 @@ async function getCustomerSpecificPriceExVatPence(customerId: string, productId:
   return Number.isFinite(value) ? value : null;
 }
 
-async function ensureProductOnCustomerShoppingList(customerId: string, productId: string) {
-  try {
-    const existing = await (prisma as any).product.findFirst({
-      where: {
-        id: productId,
-        customerAccess: {
-          some: {
-            customerId
-          }
-        }
-      },
-      select: {
-        id: true
+async function setProductShoppingListAccess(customerId: string, productId: string, shouldHaveAccess: boolean) {
+  const existing = await prisma.customerProductAccess.findUnique({
+    where: {
+      customerId_productId: {
+        customerId,
+        productId
       }
-    });
+    },
+    select: {
+      id: true
+    }
+  });
 
+  if (shouldHaveAccess) {
     if (existing) {
       return;
     }
 
-    await (prisma as any).product.update({
-      where: {
-        id: productId
-      },
+    await prisma.customerProductAccess.create({
       data: {
-        customerAccess: {
-          create: {
-            customerId
-          }
-        }
+        customerId,
+        productId
       }
     });
-  } catch {
+
     return;
   }
+
+  if (!existing) {
+    return;
+  }
+
+  await prisma.customerProductAccess.delete({
+    where: {
+      customerId_productId: {
+        customerId,
+        productId
+      }
+    }
+  });
 }
 
 async function getManualOrderWithLineOrThrow(orderReference: string, lineId: string) {

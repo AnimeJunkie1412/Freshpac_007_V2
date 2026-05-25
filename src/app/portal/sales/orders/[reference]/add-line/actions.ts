@@ -20,7 +20,8 @@ export async function saveManualOrderPad(formData: FormData) {
   const rows = productIds.map((productId) => ({
     productId,
     quantity: Number(formData.get(`quantity_${productId}`) || 0),
-    priceExVatPence: parseMoneyToPence(String(formData.get(`priceExVat_${productId}`) || ""))
+    priceExVatPence: parseMoneyToPence(String(formData.get(`priceExVat_${productId}`) || "")),
+    onShoppingList: String(formData.get(`shoppingList_${productId}`) || "") === "on"
   }));
 
   await syncManualOrderPadFromDb({

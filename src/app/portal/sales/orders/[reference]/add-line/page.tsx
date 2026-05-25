@@ -20,7 +20,8 @@ import {
   getProductDisplayName,
   getProductEffectivePriceExVatPence,
   getProductPricingSource,
-  getProductVatRateBasisPoints
+  getProductVatRateBasisPoints,
+  productIsOnCustomerShoppingList
 } from "@/lib/sales/manual-order-lines-db";
 import {
   formatOrderMoney,
@@ -85,6 +86,12 @@ export default async function AddManualOrderLinePage({
 
     if (aQty > 0 && bQty === 0) return -1;
     if (bQty > 0 && aQty === 0) return 1;
+
+    const aOnList = productIsOnCustomerShoppingList(a);
+    const bOnList = productIsOnCustomerShoppingList(b);
+
+    if (aOnList && !bOnList) return -1;
+    if (bOnList && !aOnList) return 1;
 
     return String(a.code || "").localeCompare(String(b.code || ""));
   });
@@ -156,7 +163,7 @@ export default async function AddManualOrderLinePage({
             </CardContent>
           </Card>
 
-          <Card className="portal-card-safe min-w-0">
+          <Card className="portal-card-safe hidden min-w-0 xl:block">
             <CardHeader className="p-3 pb-1">
               <CardTitle className="text-sm">Active lines</CardTitle>
               <CardDescription className="text-[11px] leading-4">
@@ -281,10 +288,31 @@ export default async function AddManualOrderLinePage({
               </CardHeader>
 
               <CardContent className="p-0">
-                <div className="max-h-[70vh] overflow-auto">
-                  <table className="min-w-[920px] border-collapse text-[10.5px]">
+                <div className="grid gap-1.5 p-2 sm:hidden">
+                  {displayedProducts.map((product: OrderPadProduct) => {
+                    const existingLine = existingLineByProductId.get((product as any).id);
+
+                    return (
+                      <OrderPadMobileRow
+                        key={(product as any).id}
+                        product={product}
+                        existingLine={existingLine}
+                      />
+                    );
+                  })}
+
+                  {!displayedProducts.length ? (
+                    <div className="rounded-xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
+                      No products match this view.
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="hidden max-h-[70vh] overflow-auto sm:block">
+                  <table className="min-w-[980px] border-collapse text-[10.5px]">
                     <thead className="sticky top-0 z-10 bg-freshpac-charcoal text-left text-white">
                       <tr>
+                        <CompactTh className="w-20">List</CompactTh>
                         <CompactTh className="w-24">Code</CompactTh>
                         <CompactTh className="w-72">Product</CompactTh>
                         <CompactTh className="w-20">Pack</CompactTh>
@@ -335,6 +363,101 @@ export default async function AddManualOrderLinePage({
   );
 }
 
+function OrderPadMobileRow({
+  product,
+  existingLine
+}: {
+  product: OrderPadProduct;
+  existingLine?: any;
+}) {
+  const defaultPriceExVatPence = getProductDefaultPriceExVatPence(product);
+  const effectivePriceExVatPence = existingLine?.priceExVatPence ?? getProductEffectivePriceExVatPence(product);
+  const pricingSource = existingLine ? "Order" : getProductPricingSource(product);
+  const productId = String((product as any).id);
+  const quantity = existingLine?.quantity ?? 0;
+  const isActive = quantity > 0;
+  const isOnShoppingList = productIsOnCustomerShoppingList(product) || isActive;
+
+  return (
+    <div className={`rounded-xl border p-2 ${isActive ? "border-emerald-200 bg-emerald-50" : "border-freshpac-panel bg-white"}`}>
+      <input type="hidden" name="productId" value={productId} />
+
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-freshpac-orange">
+            {(product as any).code}
+          </p>
+          <p className="truncate text-xs font-black leading-4 text-freshpac-charcoal">
+            {getProductDisplayName(product)}
+          </p>
+          <p className="truncate text-[10px] font-semibold leading-3 text-freshpac-grey">
+            {getProductDescription(product)}
+          </p>
+        </div>
+
+        <label className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg border border-freshpac-panel bg-white px-2">
+          <input
+            type="checkbox"
+            name={`shoppingList_${productId}`}
+            defaultChecked={isOnShoppingList}
+            className="size-3.5 accent-freshpac-orange"
+            aria-label="Keep on customer shopping list"
+          />
+          <span className="text-[10px] font-black text-freshpac-charcoal">List</span>
+        </label>
+      </div>
+
+      <div className="mt-2 grid grid-cols-[0.8fr_0.9fr_60px_72px] items-end gap-1.5">
+        <MobileMini label="Pack" value={String((product as any).packSize || "None")} />
+        <div className="min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-[0.08em] text-freshpac-grey">
+            Ex
+          </p>
+          <p className="truncate text-[11px] font-black text-freshpac-charcoal">
+            {formatMoneyFromPence(effectivePriceExVatPence)}
+          </p>
+          <div className="mt-0.5 flex items-center gap-1">
+            <Badge tone={pricingSource === "Customer" || pricingSource === "Order" ? "success" : "neutral"}>
+              {pricingSource === "Customer" ? "Cust" : pricingSource === "Order" ? "Order" : "Def"}
+            </Badge>
+            {defaultPriceExVatPence !== effectivePriceExVatPence ? (
+              <span className="truncate text-[9px] text-freshpac-grey">
+                Def {formatMoneyFromPence(defaultPriceExVatPence)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <label className="block">
+          <span className="text-[9px] font-black uppercase tracking-[0.08em] text-freshpac-grey">
+            Qty
+          </span>
+          <Input
+            name={`quantity_${productId}`}
+            type="number"
+            min={0}
+            defaultValue={quantity}
+            aria-label="Quantity"
+            className={`mt-0.5 h-8 w-full rounded-lg px-1.5 text-xs ${isActive ? "border-emerald-300 bg-white" : ""}`}
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-[9px] font-black uppercase tracking-[0.08em] text-freshpac-grey">
+            Price
+          </span>
+          <Input
+            name={`priceExVat_${productId}`}
+            defaultValue={(effectivePriceExVatPence / 100).toFixed(2)}
+            aria-label="Ex VAT price"
+            className="mt-0.5 h-8 w-full rounded-lg px-1.5 text-xs"
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
 function OrderPadProductRow({
   product,
   existingLine
@@ -351,9 +474,23 @@ function OrderPadProductRow({
   const productId = String((product as any).id);
   const quantity = existingLine?.quantity ?? 0;
   const isActive = quantity > 0;
+  const isOnShoppingList = productIsOnCustomerShoppingList(product) || isActive;
 
   return (
     <tr className={`border-b border-freshpac-panel align-middle hover:bg-orange-50 ${isActive ? "bg-emerald-50" : ""}`}>
+      <CompactTd className="w-20">
+        <label className="inline-flex items-center gap-1 rounded-lg border border-freshpac-panel bg-white px-2 py-1">
+          <input
+            type="checkbox"
+            name={`shoppingList_${productId}`}
+            defaultChecked={isOnShoppingList}
+            className="size-3.5 accent-freshpac-orange"
+            aria-label="Keep on customer shopping list"
+          />
+          <span className="text-[10px] font-black text-freshpac-charcoal">List</span>
+        </label>
+      </CompactTd>
+
       <CompactTd className="w-24">
         <input type="hidden" name="productId" value={productId} />
         <p className="truncate whitespace-nowrap font-black text-freshpac-charcoal">{(product as any).code}</p>
@@ -417,6 +554,19 @@ function OrderPadProductRow({
         />
       </CompactTd>
     </tr>
+  );
+}
+
+function MobileMini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[9px] font-black uppercase tracking-[0.08em] text-freshpac-grey">
+        {label}
+      </p>
+      <p className="truncate text-[11px] font-black text-freshpac-charcoal">
+        {value}
+      </p>
+    </div>
   );
 }
 
