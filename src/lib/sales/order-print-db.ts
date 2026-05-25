@@ -2,13 +2,40 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export type PrintableOrderFilters = {
-  q?: string;
+  q?: string | string[];
   status?: string;
   source?: string;
+  references?: string[];
 };
 
+const selectedReferencePrefix = "ORDER_REF:";
+
+export function buildSelectedOrderQueryValue(reference: string) {
+  return `${selectedReferencePrefix}${reference}`;
+}
+
 export function buildPrintableOrderWhere(filters?: PrintableOrderFilters): Prisma.OrderWhereInput {
-  const q = filters?.q?.trim();
+  const extracted = extractSearchAndSelectedReferences(filters);
+  const q = extracted.q;
+  const selectedReferences = extracted.references;
+
+  if (selectedReferences.length) {
+    return {
+      OR: [
+        {
+          reference: {
+            in: selectedReferences
+          }
+        },
+        {
+          temporaryReference: {
+            in: selectedReferences
+          }
+        }
+      ]
+    };
+  }
+
   const status = filters?.status?.trim();
   const source = filters?.source?.trim();
 
@@ -145,4 +172,61 @@ export async function markPrintedOrdersProcessedFromDb(filters?: PrintableOrderF
       processedAt: new Date()
     }
   });
+}
+
+function extractSearchAndSelectedReferences(filters?: PrintableOrderFilters) {
+  const explicitReferences = normaliseReferences(filters?.references || []);
+
+  if (explicitReferences.length) {
+    return {
+      q: readSingleSearchValue(filters?.q),
+      references: explicitReferences
+    };
+  }
+
+  const qInput = filters?.q;
+
+  if (Array.isArray(qInput)) {
+    const selectedReferences = normaliseReferences(
+      qInput
+        .map((value) => value.trim())
+        .filter((value) => value.startsWith(selectedReferencePrefix))
+        .map((value) => value.slice(selectedReferencePrefix.length))
+    );
+
+    if (selectedReferences.length) {
+      return {
+        q: "",
+        references: selectedReferences
+      };
+    }
+
+    return {
+      q: qInput.find((value) => value.trim())?.trim() || "",
+      references: []
+    };
+  }
+
+  return {
+    q: qInput?.trim() || "",
+    references: []
+  };
+}
+
+function readSingleSearchValue(value?: string | string[]) {
+  if (Array.isArray(value)) {
+    return value.find((item) => item.trim() && !item.startsWith(selectedReferencePrefix))?.trim() || "";
+  }
+
+  return value?.trim() || "";
+}
+
+function normaliseReferences(references: string[]) {
+  return Array.from(
+    new Set(
+      references
+        .map((reference) => reference.trim())
+        .filter(Boolean)
+    )
+  );
 }

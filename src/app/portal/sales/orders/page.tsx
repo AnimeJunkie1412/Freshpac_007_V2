@@ -1,6 +1,19 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Banknote, ClipboardList, Coffee, FileText, Filter, ListChecks, Plus, Printer, Search, ShoppingBag, Truck, WifiOff } from "lucide-react";
+import {
+  Banknote,
+  ClipboardList,
+  Coffee,
+  FileText,
+  Filter,
+  ListChecks,
+  Plus,
+  Printer,
+  Search,
+  ShoppingBag,
+  Truck,
+  WifiOff
+} from "lucide-react";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -19,6 +32,7 @@ import {
   getOrderStatsFromDb,
   getOrderStatusTone
 } from "@/lib/sales/order-db";
+import { buildSelectedOrderQueryValue } from "@/lib/sales/order-print-db";
 
 const statusFilters = [
   { label: "All", value: "ALL" },
@@ -65,17 +79,17 @@ export default async function OrdersPage({
   return (
     <PortalShell
       title="Sales orders"
-      subtitle="Live order records from Supabase/PostgreSQL via Prisma."
+      subtitle="Compact order processing, multi-select printing and live Prisma data."
       activeHref="/portal/sales/orders"
     >
-      <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
+      <div className="mb-4 grid gap-3 xl:grid-cols-[1fr_330px]">
         <Card className="portal-card-safe">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle>Order search</CardTitle>
+                <CardTitle>Orders</CardTitle>
                 <CardDescription>
-                  Search by order reference, customer, account number, delivery day, courier, product or status.
+                  Search, filter, select multiple orders and print grouped paperwork.
                 </CardDescription>
               </div>
 
@@ -92,41 +106,41 @@ export default async function OrdersPage({
 
                 <LinkButton href="/portal/sales/orders/new" size="sm">
                   <Plus className="mr-2 size-4" />
-                  New manual order
+                  New order
                 </LinkButton>
               </div>
             </div>
           </CardHeader>
 
-          <CardContent>
-            <form action="/portal/sales/orders" className="grid gap-3 lg:grid-cols-[1fr_auto_auto]">
+          <CardContent className="pt-0">
+            <form action="/portal/sales/orders" className="grid gap-2 lg:grid-cols-[1fr_auto_auto]">
               <input type="hidden" name="status" value={status} />
               <input type="hidden" name="source" value={source} />
 
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
                 <Input
-                  className="pl-9"
+                  className="h-10 pl-9"
                   name="q"
                   defaultValue={q}
-                  placeholder="Search FP reference, account, customer, driver, courier, product..."
+                  placeholder="Search ref, account, customer, driver, product..."
                 />
               </label>
 
-              <Button variant="secondary" type="submit">
+              <Button variant="secondary" type="submit" className="h-10">
                 <Search className="mr-2 size-4" />
                 Search
               </Button>
 
               <Link
                 href="/portal/sales/orders"
-                className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-4 py-2 text-sm font-bold text-freshpac-charcoal hover:border-freshpac-orange"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-freshpac-panel bg-white px-4 text-sm font-bold text-freshpac-charcoal hover:border-freshpac-orange"
               >
                 Clear
               </Link>
             </form>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {statusFilters.map((filter) => {
                 const href = buildOrdersHref({ q, status: filter.value, source });
 
@@ -141,7 +155,7 @@ export default async function OrdersPage({
               })}
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {sourceFilters.map((filter) => {
                 const href = buildOrdersHref({ q, status, source: filter.value });
 
@@ -159,39 +173,44 @@ export default async function OrdersPage({
         </Card>
 
         <Card className="portal-card-safe">
-          <CardHeader>
-            <CardTitle>Order counters</CardTitle>
-            <CardDescription>Live operational order queues.</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle>Queues</CardTitle>
+            <CardDescription>Live counters.</CardDescription>
           </CardHeader>
 
-          <CardContent className="grid grid-cols-2 gap-3">
+          <CardContent className="grid grid-cols-3 gap-2 xl:grid-cols-2">
             <MiniStat label="Total" value={stats.total} icon={<ClipboardList className="size-4" />} />
             <MiniStat label="Submitted" value={stats.submitted} tone="info" icon={<Truck className="size-4" />} />
-            <MiniStat label="Awaiting pay" value={stats.awaitingPayment} tone="warning" icon={<Banknote className="size-4" />} />
-            <MiniStat label="Processed" value={stats.processed} tone="success" icon={<Printer className="size-4" />} />
-            <MiniStat label="Need print" value={stats.needsPrint} tone="warning" icon={<Printer className="size-4" />} />
+            <MiniStat label="Pay" value={stats.awaitingPayment} tone="warning" icon={<Banknote className="size-4" />} />
+            <MiniStat label="Done" value={stats.processed} tone="success" icon={<Printer className="size-4" />} />
+            <MiniStat label="Print" value={stats.needsPrint} tone="warning" icon={<Printer className="size-4" />} />
             <MiniStat label="Offline" value={stats.offlinePending} tone="danger" icon={<WifiOff className="size-4" />} />
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
+      <form method="get" action="/portal/sales/orders/print" className="grid gap-4 xl:grid-cols-[1fr_330px]">
+        {q ? <input type="hidden" name="q" value={q} /> : null}
+        {status && status !== "ALL" ? <input type="hidden" name="status" value={status} /> : null}
+        {source && source !== "ALL" ? <input type="hidden" name="source" value={source} /> : null}
+
         <Card className="portal-card-safe">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <CardTitle>Order list</CardTitle>
                 <CardDescription>
-                  Showing {orders.length} matching order{orders.length === 1 ? "" : "s"}.
+                  {orders.length} matching order{orders.length === 1 ? "" : "s"}. Tick rows for selected paperwork.
                 </CardDescription>
               </div>
+
               <Badge tone="success">Live database</Badge>
             </div>
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="block p-3 md:hidden">
-              <div className="grid gap-3">
+            <div className="block p-2 md:hidden">
+              <div className="grid gap-2">
                 {orders.map((order) => {
                   const reference = getOrderReference(order);
                   const encodedReference = encodeURIComponent(reference);
@@ -200,59 +219,55 @@ export default async function OrdersPage({
                   return (
                     <div
                       key={order.id}
-                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm"
+                      className="rounded-2xl border border-freshpac-panel bg-white p-3 shadow-sm"
                     >
-                      <Link href={`/portal/sales/orders/${encodedReference}`} className="block transition hover:bg-orange-50">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{reference}</p>
-                            <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">{order.customer.siteName}</p>
-                            <p className="text-xs text-freshpac-grey">{order.customer.accountNumber}</p>
+                      <div className="grid grid-cols-[auto_1fr] gap-3">
+                        <label className="mt-1 flex size-8 items-center justify-center rounded-xl border border-freshpac-panel bg-freshpac-cream">
+                          <input
+                            type="checkbox"
+                            name="q"
+                            value={buildSelectedOrderQueryValue(reference)}
+                            aria-label={`Select ${reference}`}
+                            className="size-4 accent-freshpac-orange"
+                          />
+                        </label>
+
+                        <Link href={`/portal/sales/orders/${encodedReference}`} className="min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-freshpac-orange">
+                                {reference}
+                              </p>
+                              <p className="mt-0.5 truncate text-sm font-black text-freshpac-charcoal">
+                                {order.customer.siteName}
+                              </p>
+                              <p className="truncate text-[11px] text-freshpac-grey">
+                                {order.customer.accountNumber}
+                              </p>
+                            </div>
+
+                            <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                           </div>
 
-                          <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
-                        </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                            {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
+                            {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
+                            {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
+                          </div>
 
-                        <div className="mt-3 flex flex-wrap gap-1">
-                          <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
-                          {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
-                          {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
-                          {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          <MobileDetail label="Date" value={formatDateTime(order.createdAt)} />
-                          <MobileDetail label="Delivery" value={order.deliveryDay || order.customer.deliveryDay || "Not set"} />
-                          <MobileDetail label="Driver" value={order.driverOrCourier || order.customer.driverOrCourier || "No driver"} />
-                          <MobileDetail label="Method" value={formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)} />
-                          <MobileDetail label="Total" value={formatOrderMoney(order.totalIncVatPence, priceVisible)} />
-                          <MobileDetail label="Lines" value={String(order.lines.length)} />
-                        </div>
-                      </Link>
-
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        <Link
-                          href={`/portal/sales/orders/${encodedReference}`}
-                          className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:border-freshpac-orange hover:bg-orange-50"
-                        >
-                          Open
+                          <div className="mt-2 grid grid-cols-3 gap-1.5">
+                            <MobileDetail label="Date" value={formatDateTime(order.createdAt)} />
+                            <MobileDetail label="Delivery" value={order.deliveryDay || order.customer.deliveryDay || "Not set"} />
+                            <MobileDetail label="Total" value={formatOrderMoney(order.totalIncVatPence, priceVisible)} />
+                          </div>
                         </Link>
+                      </div>
 
-                        <Link
-                          href={`/portal/sales/orders/${encodedReference}/print`}
-                          className="inline-flex items-center justify-center rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:bg-orange-400"
-                        >
-                          <Printer className="mr-1 size-3" />
-                          Print
-                        </Link>
-
-                        <Link
-                          href={`/portal/sales/orders/${encodedReference}/delivery-note`}
-                          className="inline-flex items-center justify-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-black text-freshpac-charcoal transition hover:border-freshpac-orange hover:bg-orange-50"
-                        >
-                          <Truck className="mr-1 size-3" />
-                          Note
-                        </Link>
+                      <div className="mt-2 grid grid-cols-3 gap-1.5">
+                        <CompactActionLink href={`/portal/sales/orders/${encodedReference}`} label="Open" />
+                        <CompactActionLink href={`/portal/sales/orders/${encodedReference}/print`} label="Print" tone="primary" />
+                        <CompactActionLink href={`/portal/sales/orders/${encodedReference}/delivery-note`} label="Note" />
                       </div>
                     </div>
                   );
@@ -268,20 +283,16 @@ export default async function OrdersPage({
 
             <div className="hidden md:block">
               <div className="portal-scroll-panel">
-                <table className="fp-compact-table min-w-full border-collapse">
-                  <thead>
+                <table className="min-w-full border-collapse text-[11px]">
+                  <thead className="bg-freshpac-charcoal text-left text-white">
                     <tr>
-                      <th>Reference</th>
-                      <th>Customer</th>
-                      <th>Status</th>
-                      <th>Source</th>
-                      <th>Date</th>
-                      <th>Delivery</th>
-                      <th>Method</th>
-                      <th>Total</th>
-                      <th>Lines</th>
-                      <th>Payment</th>
-                      <th>Actions</th>
+                      <CompactTh>Select</CompactTh>
+                      <CompactTh>Order</CompactTh>
+                      <CompactTh>Status</CompactTh>
+                      <CompactTh>Delivery</CompactTh>
+                      <CompactTh>Total</CompactTh>
+                      <CompactTh>Lines</CompactTh>
+                      <CompactTh>Actions</CompactTh>
                     </tr>
                   </thead>
 
@@ -292,68 +303,72 @@ export default async function OrdersPage({
                       const priceVisible = order.priceVisibilityAtOrder;
 
                       return (
-                        <tr key={order.id}>
-                          <td>
+                        <tr key={order.id} className="border-b border-freshpac-panel align-top hover:bg-orange-50/60">
+                          <CompactTd>
+                            <label className="flex size-8 items-center justify-center rounded-xl border border-freshpac-panel bg-white">
+                              <input
+                                type="checkbox"
+                                name="q"
+                                value={buildSelectedOrderQueryValue(reference)}
+                                aria-label={`Select ${reference}`}
+                                className="size-4 accent-freshpac-orange"
+                              />
+                            </label>
+                          </CompactTd>
+
+                          <CompactTd>
                             <Link
                               href={`/portal/sales/orders/${encodedReference}`}
                               className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
                             >
                               {reference}
                             </Link>
-                          </td>
-                          <td>
-                            <div className="font-bold text-freshpac-charcoal">{order.customer.siteName}</div>
-                            <div className="text-xs text-freshpac-grey">{order.customer.accountNumber}</div>
-                          </td>
-                          <td>
-                            <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
-                          </td>
-                          <td>
-                            <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
-                          </td>
-                          <td>{formatDateTime(order.createdAt)}</td>
-                          <td>
-                            <div className="font-semibold">{order.deliveryDay || order.customer.deliveryDay || "Not set"}</div>
-                            <div className="text-xs text-freshpac-grey">
+                            <div className="max-w-56 truncate font-bold text-freshpac-charcoal">
+                              {order.customer.siteName}
+                            </div>
+                            <div className="text-[10px] text-freshpac-grey">{order.customer.accountNumber}</div>
+                          </CompactTd>
+
+                          <CompactTd>
+                            <div className="flex flex-wrap gap-1">
+                              <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
+                              <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                              {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
+                            </div>
+                          </CompactTd>
+
+                          <CompactTd>
+                            <div className="font-bold text-freshpac-charcoal">
+                              {order.deliveryDay || order.customer.deliveryDay || "Not set"}
+                            </div>
+                            <div className="text-[10px] text-freshpac-grey">
                               {order.driverOrCourier || order.customer.driverOrCourier || "No driver"}
                             </div>
-                          </td>
-                          <td>{formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)}</td>
-                          <td className="font-bold">{formatOrderMoney(order.totalIncVatPence, priceVisible)}</td>
-                          <td>{order.lines.length}</td>
-                          <td>
-                            {order.status === "AWAITING_PAYMENT" ? (
-                              <Badge tone="warning">Awaiting payment</Badge>
-                            ) : (
-                              <Badge>Not required</Badge>
-                            )}
-                          </td>
-                          <td>
-                            <div className="flex min-w-64 flex-wrap gap-2">
-                              <Link
-                                href={`/portal/sales/orders/${encodedReference}`}
-                                className="rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
-                              >
-                                Open
-                              </Link>
-
-                              <Link
-                                href={`/portal/sales/orders/${encodedReference}/print`}
-                                className="inline-flex items-center rounded-xl bg-freshpac-orange px-3 py-2 text-xs font-black text-freshpac-charcoal hover:bg-orange-400"
-                              >
-                                <Printer className="mr-2 size-3" />
-                                Print
-                              </Link>
-
-                              <Link
-                                href={`/portal/sales/orders/${encodedReference}/delivery-note`}
-                                className="inline-flex items-center rounded-xl border border-freshpac-panel bg-white px-3 py-2 text-xs font-bold text-freshpac-charcoal hover:border-freshpac-orange"
-                              >
-                                <Truck className="mr-2 size-3" />
-                                Delivery note
-                              </Link>
+                            <div className="text-[10px] text-freshpac-grey">
+                              {formatDeliveryMethod(order.deliveryMethod || order.customer.deliveryMethod)}
                             </div>
-                          </td>
+                          </CompactTd>
+
+                          <CompactTd>
+                            <div className="font-black text-freshpac-charcoal">
+                              {formatOrderMoney(order.totalIncVatPence, priceVisible)}
+                            </div>
+                            <div className="text-[10px] text-freshpac-grey">{formatDateTime(order.createdAt)}</div>
+                          </CompactTd>
+
+                          <CompactTd>
+                            <span className="rounded-lg bg-freshpac-cream px-2 py-1 font-black text-freshpac-charcoal">
+                              {order.lines.length}
+                            </span>
+                          </CompactTd>
+
+                          <CompactTd>
+                            <div className="flex min-w-48 flex-wrap gap-1.5">
+                              <CompactActionLink href={`/portal/sales/orders/${encodedReference}`} label="Open" />
+                              <CompactActionLink href={`/portal/sales/orders/${encodedReference}/print`} label="Print" tone="primary" />
+                              <CompactActionLink href={`/portal/sales/orders/${encodedReference}/delivery-note`} label="Delivery note" />
+                            </div>
+                          </CompactTd>
                         </tr>
                       );
                     })}
@@ -372,46 +387,67 @@ export default async function OrdersPage({
 
         <div className="grid content-start gap-4">
           <Card className="portal-card-safe">
-            <CardHeader>
-              <CardTitle>Processing actions</CardTitle>
-              <CardDescription>Print order sheets, delivery notes and pick lists from the current filtered result set.</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle>Selected actions</CardTitle>
+              <CardDescription>
+                Tick orders on the left. If none are ticked, the current filter is used.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="grid gap-2">
+              <CompactSubmitButton formAction="/portal/sales/orders/print" icon={<Printer className="size-4" />}>
+                Print order sheets
+              </CompactSubmitButton>
+
+              <CompactSubmitButton formAction="/portal/sales/orders/delivery-notes" icon={<FileText className="size-4" />} variant="secondary">
+                Print delivery notes
+              </CompactSubmitButton>
+
+              <CompactSubmitButton formAction="/portal/sales/orders/pick-list" icon={<ListChecks className="size-4" />} variant="secondary">
+                Print general pick list
+              </CompactSubmitButton>
+
+              <CompactSubmitButton formAction="/portal/sales/orders/pick-list/coffee" icon={<Coffee className="size-4" />} variant="secondary">
+                Print coffee pick list
+              </CompactSubmitButton>
+
+              <CompactSubmitButton formAction="/portal/sales/orders/pick-list/retail" icon={<ShoppingBag className="size-4" />} variant="secondary">
+                Print retail pick list
+              </CompactSubmitButton>
+            </CardContent>
+          </Card>
+
+          <Card className="portal-card-safe">
+            <CardHeader className="pb-3">
+              <CardTitle>Quick links</CardTitle>
+              <CardDescription>Current filtered set.</CardDescription>
             </CardHeader>
 
             <CardContent className="grid gap-2">
               <LinkButton href={batchPrintHref}>
                 <Printer className="mr-2 size-4" />
-                Print current filtered order sheets
+                Filtered order sheets
               </LinkButton>
 
               <LinkButton href={batchDeliveryNotesHref} variant="secondary">
                 <FileText className="mr-2 size-4" />
-                Print current filtered delivery notes
+                Filtered delivery notes
               </LinkButton>
 
               <LinkButton href={pickListHref} variant="secondary">
                 <ListChecks className="mr-2 size-4" />
-                Print general pick list
-              </LinkButton>
-
-              <LinkButton href={coffeePickListHref} variant="secondary">
-                <Coffee className="mr-2 size-4" />
-                Print coffee pick list
-              </LinkButton>
-
-              <LinkButton href={retailPickListHref} variant="secondary">
-                <ShoppingBag className="mr-2 size-4" />
-                Print retail pick list
+                Filtered pick list
               </LinkButton>
             </CardContent>
           </Card>
 
           <Card className="portal-card-safe">
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle>Needs attention</CardTitle>
               <CardDescription>Orders that should not silently process.</CardDescription>
             </CardHeader>
 
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-2">
               {attentionOrders.map((order) => {
                 const reference = getOrderReference(order);
                 const encodedReference = encodeURIComponent(reference);
@@ -422,10 +458,10 @@ export default async function OrdersPage({
                     href={`/portal/sales/orders/${encodedReference}`}
                     className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-freshpac-charcoal">{reference}</p>
-                        <p className="truncate text-xs text-freshpac-grey">{order.customer.siteName}</p>
+                        <p className="truncate text-xs font-black text-freshpac-charcoal">{reference}</p>
+                        <p className="truncate text-[11px] text-freshpac-grey">{order.customer.siteName}</p>
                       </div>
                       <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                     </div>
@@ -448,7 +484,7 @@ export default async function OrdersPage({
             </CardContent>
           </Card>
         </div>
-      </div>
+      </form>
     </PortalShell>
   );
 }
@@ -482,12 +518,7 @@ function buildBatchPrintHref({
   status: string;
   source: string;
 }) {
-  const params = new URLSearchParams();
-
-  if (q) params.set("q", q);
-  if (status && status !== "ALL") params.set("status", status);
-  if (source && source !== "ALL") params.set("source", source);
-
+  const params = buildFilterParams({ q, status, source });
   const query = params.toString();
 
   return query ? `/portal/sales/orders/print?${query}` : "/portal/sales/orders/print?status=NEEDS_PRINT";
@@ -502,12 +533,7 @@ function buildBatchDeliveryNotesHref({
   status: string;
   source: string;
 }) {
-  const params = new URLSearchParams();
-
-  if (q) params.set("q", q);
-  if (status && status !== "ALL") params.set("status", status);
-  if (source && source !== "ALL") params.set("source", source);
-
+  const params = buildFilterParams({ q, status, source });
   const query = params.toString();
 
   return query ? `/portal/sales/orders/delivery-notes?${query}` : "/portal/sales/orders/delivery-notes?status=NEEDS_PRINT";
@@ -522,12 +548,7 @@ function buildPickListHref({
   status: string;
   source: string;
 }) {
-  const params = new URLSearchParams();
-
-  if (q) params.set("q", q);
-  if (status && status !== "ALL") params.set("status", status);
-  if (source && source !== "ALL") params.set("source", source);
-
+  const params = buildFilterParams({ q, status, source });
   const query = params.toString();
 
   return query ? `/portal/sales/orders/pick-list?${query}` : "/portal/sales/orders/pick-list?status=NEEDS_PRINT";
@@ -542,12 +563,7 @@ function buildCoffeePickListHref({
   status: string;
   source: string;
 }) {
-  const params = new URLSearchParams();
-
-  if (q) params.set("q", q);
-  if (status && status !== "ALL") params.set("status", status);
-  if (source && source !== "ALL") params.set("source", source);
-
+  const params = buildFilterParams({ q, status, source });
   const query = params.toString();
 
   return query ? `/portal/sales/orders/pick-list/coffee?${query}` : "/portal/sales/orders/pick-list/coffee?status=NEEDS_PRINT";
@@ -562,28 +578,41 @@ function buildRetailPickListHref({
   status: string;
   source: string;
 }) {
+  const params = buildFilterParams({ q, status, source });
+  const query = params.toString();
+
+  return query ? `/portal/sales/orders/pick-list/retail?${query}` : "/portal/sales/orders/pick-list/retail?status=NEEDS_PRINT";
+}
+
+function buildFilterParams({
+  q,
+  status,
+  source
+}: {
+  q: string;
+  status: string;
+  source: string;
+}) {
   const params = new URLSearchParams();
 
   if (q) params.set("q", q);
   if (status && status !== "ALL") params.set("status", status);
   if (source && source !== "ALL") params.set("source", source);
 
-  const query = params.toString();
-
-  return query ? `/portal/sales/orders/pick-list/retail?${query}` : "/portal/sales/orders/pick-list/retail?status=NEEDS_PRINT";
+  return params;
 }
 
 function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded-xl px-3 py-2 text-xs font-black transition ${
+      className={`inline-flex items-center rounded-lg px-2.5 py-1.5 text-[11px] font-black transition ${
         active
           ? "bg-freshpac-orange text-freshpac-charcoal"
           : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
       }`}
     >
-      <Filter className="mr-2 size-3" />
+      <Filter className="mr-1.5 size-3" />
       {label}
     </Link>
   );
@@ -609,21 +638,80 @@ function MiniStat({
   };
 
   return (
-    <div className={`rounded-2xl border border-freshpac-panel p-3 ${tones[tone]}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.12em] opacity-70">{label}</p>
+    <div className={`rounded-xl border border-freshpac-panel p-2 ${tones[tone]}`}>
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[10px] font-bold uppercase tracking-[0.1em] opacity-70">{label}</p>
         {icon}
       </div>
-      <p className="mt-2 text-2xl font-black">{value}</p>
+      <p className="mt-1 text-xl font-black">{value}</p>
     </div>
   );
 }
 
 function MobileDetail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
-      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
-      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">{value}</p>
+    <div className="min-w-0 rounded-lg bg-freshpac-cream/70 p-1.5">
+      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-freshpac-grey">{label}</p>
+      <p className="mt-0.5 truncate text-[11px] font-bold text-freshpac-charcoal">{value}</p>
     </div>
+  );
+}
+
+function CompactTh({ children }: { children: ReactNode }) {
+  return <th className="px-2 py-2 text-[10px] font-black uppercase tracking-[0.12em]">{children}</th>;
+}
+
+function CompactTd({ children }: { children: ReactNode }) {
+  return <td className="px-2 py-2">{children}</td>;
+}
+
+function CompactActionLink({
+  href,
+  label,
+  tone = "secondary"
+}: {
+  href: string;
+  label: string;
+  tone?: "primary" | "secondary";
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1.5 text-[11px] font-black transition ${
+        tone === "primary"
+          ? "bg-freshpac-orange text-freshpac-charcoal hover:bg-orange-400"
+          : "border border-freshpac-panel bg-white text-freshpac-charcoal hover:border-freshpac-orange hover:bg-orange-50"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function CompactSubmitButton({
+  children,
+  formAction,
+  icon,
+  variant = "primary"
+}: {
+  children: ReactNode;
+  formAction: string;
+  icon: ReactNode;
+  variant?: "primary" | "secondary";
+}) {
+  return (
+    <button
+      type="submit"
+      formAction={formAction}
+      formMethod="get"
+      className={`inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-black transition ${
+        variant === "primary"
+          ? "bg-freshpac-orange text-freshpac-charcoal hover:bg-orange-400"
+          : "border border-freshpac-panel bg-white text-freshpac-charcoal hover:border-freshpac-orange hover:bg-orange-50"
+      }`}
+    >
+      <span className="mr-2">{icon}</span>
+      {children}
+    </button>
   );
 }
