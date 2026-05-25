@@ -3,12 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --background: #fbf8f2;
-  --foreground: #2d2727;
-  --muted: #6e6d6d;
-  --brand: #f89a39;
-  --panel: #ffffff;
-  --line: #e8e4de;
+  color-scheme: light;
 }
 
 * {
@@ -20,34 +15,115 @@ html {
 }
 
 body {
-  margin: 0;
-  background: radial-gradient(circle at top left, rgba(248, 154, 57, 0.12), transparent 28rem), var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  background: #f7f1e8;
+  color: #25211d;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+@layer base {
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
-::selection {
-  background: rgba(248, 154, 57, 0.28);
+@layer components {
+  .portal-card-safe {
+    overflow: hidden;
+    border-radius: 1rem;
+  }
+
+  .portal-scroll-panel {
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .portal-scroll-panel::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .portal-scroll-panel::-webkit-scrollbar-track {
+    background: rgba(37, 33, 29, 0.06);
+    border-radius: 999px;
+  }
+
+  .portal-scroll-panel::-webkit-scrollbar-thumb {
+    background: rgba(242, 123, 32, 0.65);
+    border-radius: 999px;
+  }
+
+  .fp-compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
+  .fp-compact-table thead {
+    background: #25211d;
+    color: white;
+  }
+
+  .fp-compact-table th {
+    padding: 0.5rem 0.55rem;
+    text-align: left;
+    font-size: 0.64rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .fp-compact-table td {
+    padding: 0.45rem 0.55rem;
+    border-bottom: 1px solid rgba(37, 33, 29, 0.1);
+    vertical-align: top;
+  }
+
+  .fp-compact-table tbody tr:hover {
+    background: rgba(242, 123, 32, 0.07);
+  }
+
+  .fp-page-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .fp-compact-section {
+    border-radius: 1rem;
+    border: 1px solid rgba(37, 33, 29, 0.12);
+    background: white;
+  }
+
+  .fp-muted-panel {
+    border-radius: 0.85rem;
+    border: 1px solid rgba(37, 33, 29, 0.1);
+    background: rgba(247, 241, 232, 0.7);
+  }
+
+  .fp-tight-text {
+    font-size: 0.78rem;
+    line-height: 1.25;
+  }
+
+  .fp-micro-label {
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
 }
 
-.fp-focus-ring {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-freshpac-orange focus-visible:ring-offset-2 focus-visible:ring-offset-white;
-}
-
-.fp-compact-table th,
-.fp-compact-table td {
-  @apply border-b border-freshpac-panel px-3 py-2 text-left align-middle text-sm;
-}
-
-.fp-compact-table th {
-  @apply bg-freshpac-charcoal text-xs font-semibold uppercase tracking-[0.14em] text-white;
-}
-
-.fp-compact-table tr:hover td {
-  @apply bg-orange-50/70;
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }

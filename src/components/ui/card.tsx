@@ -1,22 +1,36 @@
 import type { HTMLAttributes } from "react";
-import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-card border border-freshpac-panel bg-white shadow-panel", className)} {...props} />;
+export function Card({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <section
+      className={`rounded-2xl border border-freshpac-panel bg-white shadow-sm ${className}`}
+      {...props}
+    />
+  );
 }
 
-export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("border-b border-freshpac-panel px-5 py-4", className)} {...props} />;
+export function CardHeader({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={`p-4 pb-2 ${className}`} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={cn("text-lg font-bold tracking-tight text-freshpac-charcoal", className)} {...props} />;
+export function CardContent({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={`p-4 pt-2 ${className}`} {...props} />;
 }
 
-export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("mt-1 text-sm text-freshpac-grey", className)} {...props} />;
+export function CardTitle({ className = "", ...props }: HTMLAttributes<HTMLHeadingElement>) {
+  return (
+    <h2
+      className={`text-base font-black tracking-tight text-freshpac-charcoal ${className}`}
+      {...props}
+    />
+  );
 }
 
-export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-5", className)} {...props} />;
+export function CardDescription({ className = "", ...props }: HTMLAttributes<HTMLParagraphElement>) {
+  return (
+    <p
+      className={`mt-0.5 text-xs font-medium leading-5 text-freshpac-grey ${className}`}
+      {...props}
+    />
+  );
 }

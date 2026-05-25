@@ -1,31 +1,39 @@
 import type { ReactNode } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ModuleSection({
   id,
   title,
   description,
-  children,
-  action
+  action,
+  children
 }: {
   id: string;
   title: string;
   description?: string;
-  children: ReactNode;
   action?: ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <Card id={id} className="scroll-mt-28">
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{title}</CardTitle>
-            {description ? <CardDescription>{description}</CardDescription> : null}
-          </div>
-          {action ? <div className="shrink-0">{action}</div> : null}
+    <section
+      id={id}
+      className="scroll-mt-24 rounded-2xl border border-freshpac-panel bg-white shadow-sm"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-freshpac-panel px-4 py-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-black tracking-tight text-freshpac-charcoal">
+            {title}
+          </h2>
+          {description ? (
+            <p className="mt-0.5 text-xs font-medium leading-5 text-freshpac-grey">
+              {description}
+            </p>
+          ) : null}
         </div>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+
+      <div className="p-4">{children}</div>
+    </section>
   );
 }
