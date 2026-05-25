@@ -41,11 +41,13 @@ export default async function AddManualOrderLinePage({
   }>;
   searchParams?: {
     q?: string;
+    activeOnly?: string;
   };
 }) {
   const { reference } = await params;
   const decodedReference = decodeURIComponent(reference);
   const q = searchParams?.q || "";
+  const activeOnly = searchParams?.activeOnly === "1";
 
   let orderPad: Awaited<ReturnType<typeof getCustomerOrderPadFromDb>> | null = null;
 
@@ -86,6 +88,13 @@ export default async function AddManualOrderLinePage({
 
     return String(a.code || "").localeCompare(String(b.code || ""));
   });
+
+  const displayedProducts = activeOnly
+    ? sortedProducts.filter((product: any) => {
+        const existingLine = existingLineByProductId.get(product.id);
+        return Number(existingLine?.quantity || 0) > 0;
+      })
+    : sortedProducts;
 
   return (
     <PortalShell
@@ -209,6 +218,8 @@ export default async function AddManualOrderLinePage({
 
             <CardContent className="p-3 pt-1">
               <form action={addLineHref} className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                {activeOnly ? <input type="hidden" name="activeOnly" value="1" /> : null}
+
                 <label className="relative block min-w-0">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-freshpac-grey" />
                   <Input
@@ -231,12 +242,26 @@ export default async function AddManualOrderLinePage({
                   Clear
                 </Link>
               </form>
+
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <PadFilterLink
+                  href={buildOrderPadHref({ addLineHref, q, activeOnly: false })}
+                  active={!activeOnly}
+                  label="All products"
+                />
+                <PadFilterLink
+                  href={buildOrderPadHref({ addLineHref, q, activeOnly: true })}
+                  active={activeOnly}
+                  label={`Active only (${activeLines.length})`}
+                />
+              </div>
             </CardContent>
           </Card>
 
           <form action={saveManualOrderPad}>
             <input type="hidden" name="orderReference" value={orderReference} />
             <input type="hidden" name="q" value={q} />
+            {activeOnly ? <input type="hidden" name="activeOnly" value="1" /> : null}
 
             <Card className="portal-card-safe min-w-0">
               <CardHeader className="p-3 pb-1">
@@ -244,7 +269,7 @@ export default async function AddManualOrderLinePage({
                   <div>
                     <CardTitle className="text-sm">Order pad</CardTitle>
                     <CardDescription className="text-[11px] leading-4">
-                      {products.length} product option{products.length === 1 ? "" : "s"}. Active rows float to the top.
+                      Showing {displayedProducts.length} of {products.length} product option{products.length === 1 ? "" : "s"}.
                     </CardDescription>
                   </div>
 
@@ -272,7 +297,7 @@ export default async function AddManualOrderLinePage({
                     </thead>
 
                     <tbody>
-                      {sortedProducts.map((product: OrderPadProduct) => {
+                      {displayedProducts.map((product: OrderPadProduct) => {
                         const existingLine = existingLineByProductId.get((product as any).id);
 
                         return (
@@ -286,10 +311,14 @@ export default async function AddManualOrderLinePage({
                     </tbody>
                   </table>
 
-                  {!products.length ? <EmptyProducts /> : null}
+                  {!displayedProducts.length ? (
+                    <div className="p-6 text-sm text-freshpac-grey">
+                      No products match this view.
+                    </div>
+                  ) : null}
                 </div>
 
-                {products.length ? (
+                {displayedProducts.length ? (
                   <div className="sticky bottom-0 flex justify-end border-t border-freshpac-panel bg-white p-3">
                     <Button type="submit" size="sm">
                       <Save className="mr-1.5 size-3.5" />
@@ -391,6 +420,53 @@ function OrderPadProductRow({
   );
 }
 
+function PadFilterLink({
+  href,
+  active,
+  label
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex h-7 items-center rounded-lg px-2.5 text-[11px] font-black transition ${
+        active
+          ? "bg-freshpac-orange text-freshpac-charcoal"
+          : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function buildOrderPadHref({
+  addLineHref,
+  q,
+  activeOnly
+}: {
+  addLineHref: string;
+  q: string;
+  activeOnly: boolean;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) {
+    params.set("q", q);
+  }
+
+  if (activeOnly) {
+    params.set("activeOnly", "1");
+  }
+
+  const query = params.toString();
+
+  return query ? `${addLineHref}?${query}` : addLineHref;
+}
+
 function TinyMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-lg bg-freshpac-cream/70 p-1.5">
@@ -417,13 +493,5 @@ function CompactTd({ children }: { children: ReactNode }) {
     <td className="px-1.5 py-1.5 text-[10.5px] font-semibold leading-4 text-freshpac-charcoal">
       {children}
     </td>
-  );
-}
-
-function EmptyProducts() {
-  return (
-    <div className="p-6 text-sm text-freshpac-grey">
-      No products matched that search.
-    </div>
   );
 }

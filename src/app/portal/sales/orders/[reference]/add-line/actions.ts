@@ -10,6 +10,7 @@ import {
 export async function saveManualOrderPad(formData: FormData) {
   const orderReference = readRequiredFormValue(formData, "orderReference");
   const q = String(formData.get("q") || "");
+  const activeOnly = String(formData.get("activeOnly") || "") === "1";
 
   const productIds = formData
     .getAll("productId")
@@ -29,7 +30,7 @@ export async function saveManualOrderPad(formData: FormData) {
 
   revalidateManualOrderPaths(orderReference);
 
-  redirectToOrderPad(orderReference, q);
+  redirectToOrderPad(orderReference, q, activeOnly);
 }
 
 function revalidateManualOrderPaths(orderReference: string) {
@@ -44,11 +45,15 @@ function revalidateManualOrderPaths(orderReference: string) {
   revalidatePath("/portal/sales/orders/pick-list");
 }
 
-function redirectToOrderPad(orderReference: string, q: string) {
+function redirectToOrderPad(orderReference: string, q: string, activeOnly: boolean) {
   const params = new URLSearchParams();
 
   if (q) {
     params.set("q", q);
+  }
+
+  if (activeOnly) {
+    params.set("activeOnly", "1");
   }
 
   const query = params.toString();
