@@ -7,6 +7,7 @@ import {
   PackagePlus,
   Printer,
   RotateCcw,
+  Send,
   Truck,
   XCircle
 } from "lucide-react";
@@ -16,6 +17,7 @@ import {
   markOrderProcessed,
   updateOrderInternalNotes
 } from "@/app/portal/sales/orders/actions";
+import { submitManualOrder } from "@/app/portal/sales/orders/[reference]/submit/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
 import { ModuleSection } from "@/components/sales/module-section";
@@ -67,6 +69,8 @@ export default async function OrderDetailPage({
   const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
   const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
   const auditEvents = buildOrderAuditPreview(order);
+  const isDraft = order.status === "DRAFT_BASKET";
+  const canSubmitDraft = isDraft && order.lines.length > 0;
 
   return (
     <PortalShell
@@ -89,6 +93,16 @@ export default async function OrderDetailPage({
             Add line
           </LinkButton>
 
+          {isDraft ? (
+            <form action={submitManualOrder}>
+              <input type="hidden" name="orderReference" value={orderReference} />
+              <Button type="submit" size="sm" className="w-full" disabled={!canSubmitDraft}>
+                <Send className="mr-2 size-4" />
+                Submit order
+              </Button>
+            </form>
+          ) : null}
+
           <LinkButton href={printHref} variant="secondary" size="sm">
             <Printer className="mr-2 size-4" />
             Print
@@ -110,7 +124,7 @@ export default async function OrderDetailPage({
             </form>
           ) : null}
 
-          {order.status !== "PROCESSED" && order.status !== "CANCELLED" ? (
+          {!isDraft && order.status !== "PROCESSED" && order.status !== "CANCELLED" ? (
             <form action={markOrderProcessed}>
               <input type="hidden" name="orderId" value={order.id} />
               <input type="hidden" name="reference" value={orderReference} />
@@ -138,6 +152,33 @@ export default async function OrderDetailPage({
           </LinkButton>
         </div>
       </div>
+
+      {isDraft ? (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-black">Draft manual order</p>
+              <p className="mt-1">
+                Add product lines, check pricing, then submit the order. It will then appear in the normal processing queue.
+              </p>
+            </div>
+
+            <form action={submitManualOrder}>
+              <input type="hidden" name="orderReference" value={orderReference} />
+              <Button type="submit" disabled={!canSubmitDraft}>
+                <Send className="mr-2 size-4" />
+                Submit order
+              </Button>
+            </form>
+          </div>
+
+          {!order.lines.length ? (
+            <p className="mt-3 font-bold">
+              Add at least one product line before submitting this order.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <Card className="portal-card-safe mb-4">
         <CardContent>
@@ -367,19 +408,31 @@ export default async function OrderDetailPage({
             <LinkButton href={printHref} variant="secondary">
               Order sheet PDF
             </LinkButton>
+
             <LinkButton href={deliveryNoteHref} variant="secondary">
               Delivery note PDF
             </LinkButton>
+
             <LinkButton href={addLineHref} variant="secondary">
               Add product line
             </LinkButton>
-            <form action={markOrderProcessed}>
-              <input type="hidden" name="orderId" value={order.id} />
-              <input type="hidden" name="reference" value={orderReference} />
-              <Button type="submit" className="w-full">
-                Confirm print success
-              </Button>
-            </form>
+
+            {isDraft ? (
+              <form action={submitManualOrder}>
+                <input type="hidden" name="orderReference" value={orderReference} />
+                <Button type="submit" className="w-full" disabled={!canSubmitDraft}>
+                  Submit order
+                </Button>
+              </form>
+            ) : (
+              <form action={markOrderProcessed}>
+                <input type="hidden" name="orderId" value={order.id} />
+                <input type="hidden" name="reference" value={orderReference} />
+                <Button type="submit" className="w-full">
+                  Confirm print success
+                </Button>
+              </form>
+            )}
           </div>
 
           {order.status === "AWAITING_PAYMENT" ? (
