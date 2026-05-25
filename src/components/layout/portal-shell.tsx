@@ -32,7 +32,7 @@ const navItems = [
   { label: "Call list", href: "/portal/sales/call-list", icon: ClipboardList },
   { label: "Trade requests", href: "/portal/sales/trade-requests", icon: UsersRound },
   { label: "Equipment", href: "/portal/equipment", icon: Coffee },
-  { label: "Engineer jobs", href: "/portal/engineer/jobs", icon: Wrench },
+  { label: "Engineer jobs", href: "/portal/engineers/jobs", icon: Wrench },
   { label: "Stock", href: "/portal/stock", icon: Boxes },
   { label: "Routes", href: "/portal/routes", icon: Route },
   { label: "Reports", href: "/portal/reports", icon: BarChart3 },

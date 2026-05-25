@@ -1,69 +1,129 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Archive, Coffee, Filter, PackageCheck, Plus, Search, ShoppingBag, Tags } from "lucide-react";
+import { CalendarDays, ClipboardList, MapPin, PhoneCall, Search, ShoppingBasket, Truck, UserRound } from "lucide-react";
+import { Prisma } from "@prisma/client";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  calculatePriceIncVatPence,
-  formatMoneyFromPence,
-  formatProductStatus,
-  formatProductType,
-  formatPublicVisibility,
-  getProductListFromDb,
-  getProductStatsFromDb,
-  getProductStatusTone,
-  getProductTypeTone
-} from "@/lib/sales/product-db";
+import { prisma } from "@/lib/prisma";
 
-const filters = ["All", "Normal", "Coffee", "Retail", "Active", "Inactive", "T0", "T1"];
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export default async function ProductsPage() {
-  const [products, stats] = await Promise.all([getProductListFromDb(), getProductStatsFromDb()]);
+type CallListSearchParams = {
+  q?: string;
+  day?: string;
+  driver?: string;
+};
+
+const deliveryDays = [
+  "ALL",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday"
+];
+
+export default async function SalesCallListPage({
+  searchParams
+}: {
+  searchParams?: CallListSearchParams;
+}) {
+  const q = searchParams?.q || "";
+  const day = searchParams?.day || "ALL";
+  const driver = searchParams?.driver || "";
+
+  const [customers, drivers, stats] = await Promise.all([
+    getCallListCustomersFromDb({ q, day, driver }),
+    getCallListDriversFromDb(),
+    getCallListStatsFromDb()
+  ]);
 
   return (
     <PortalShell
-      title="Products and pricing"
-      subtitle="Live product records from Supabase/PostgreSQL via Prisma."
-      activeHref="/portal/sales/products"
+      title="Sales call list"
+      subtitle="Compact route/customer call list for sales ordering and repeat customer contact."
+      activeHref="/portal/sales/call-list"
     >
-      <div className="mb-5 grid gap-4 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-3 xl:grid-cols-[1fr_320px]">
         <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <CardTitle>Product search</CardTitle>
+                <CardTitle>Call list search</CardTitle>
                 <CardDescription>
-                  Search by product code, description, category, group, VAT code or restricted product type.
+                  Search by account, customer, legal name, delivery day or driver.
                 </CardDescription>
               </div>
-              <LinkButton href="/portal/sales/products/new" size="sm">
-                <Plus className="mr-2 size-4" />
-                Create product
+
+              <LinkButton href="/portal/sales/orders/new" size="sm">
+                <ShoppingBasket className="mr-2 size-4" />
+                New order
               </LinkButton>
             </div>
           </CardHeader>
 
           <CardContent>
-            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+            <form action="/portal/sales/call-list" className="grid gap-2 lg:grid-cols-[1fr_auto_auto]">
+              <input type="hidden" name="day" value={day} />
+              <input type="hidden" name="driver" value={driver} />
+
               <label className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-freshpac-grey" />
-                <Input className="pl-9" placeholder="Search product code, name, category, group..." />
+                <Input
+                  className="pl-9"
+                  name="q"
+                  defaultValue={q}
+                  placeholder="Search account, customer, driver..."
+                />
               </label>
 
-              <Button variant="secondary" type="button">
-                <Filter className="mr-2 size-4" />
-                More filters
+              <Button type="submit" variant="secondary">
+                <Search className="mr-2 size-4" />
+                Search
               </Button>
+
+              <Link
+                href="/portal/sales/call-list"
+                className="inline-flex h-9 items-center justify-center rounded-xl border border-freshpac-panel bg-white px-3 text-sm font-black text-freshpac-charcoal hover:border-freshpac-orange hover:bg-orange-50"
+              >
+                Clear
+              </Link>
+            </form>
+
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {deliveryDays.map((deliveryDay) => (
+                <FilterLink
+                  key={deliveryDay}
+                  href={buildCallListHref({
+                    q,
+                    day: deliveryDay,
+                    driver
+                  })}
+                  active={day === deliveryDay || (!searchParams?.day && deliveryDay === "ALL")}
+                  label={deliveryDay === "ALL" ? "All days" : deliveryDay}
+                />
+              ))}
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {filters.map((filter, index) => (
-                <Button key={filter} type="button" size="sm" variant={index === 0 ? "primary" : "secondary"}>
-                  {filter}
-                </Button>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <FilterLink
+                href={buildCallListHref({ q, day, driver: "" })}
+                active={!driver}
+                label="All drivers"
+              />
+
+              {drivers.map((driverName) => (
+                <FilterLink
+                  key={driverName}
+                  href={buildCallListHref({ q, day, driver: driverName })}
+                  active={driver === driverName}
+                  label={driverName}
+                />
               ))}
             </div>
           </CardContent>
@@ -71,254 +131,455 @@ export default async function ProductsPage() {
 
         <Card className="portal-card-safe">
           <CardHeader>
-            <CardTitle>Product counters</CardTitle>
-            <CardDescription>Live values from the database.</CardDescription>
+            <CardTitle>Call counters</CardTitle>
+            <CardDescription>Customer accounts for sales contact.</CardDescription>
           </CardHeader>
 
-          <CardContent className="grid grid-cols-2 gap-3">
-            <MiniStat label="Total" value={stats.total} icon={<Tags className="size-4" />} />
-            <MiniStat label="Active" value={stats.active} tone="success" icon={<PackageCheck className="size-4" />} />
-            <MiniStat label="Inactive" value={stats.inactive} tone="warning" icon={<Archive className="size-4" />} />
-            <MiniStat label="Normal" value={stats.normal} icon={<ShoppingBag className="size-4" />} />
-            <MiniStat label="Coffee" value={stats.coffee} tone="info" icon={<Coffee className="size-4" />} />
-            <MiniStat label="Retail" value={stats.retail} tone="warning" icon={<ShoppingBag className="size-4" />} />
+          <CardContent className="grid grid-cols-2 gap-2">
+            <MiniStat label="Total" value={stats.total} />
+            <MiniStat label="Active" value={stats.active} tone="success" />
+            <MiniStat label="On hold" value={stats.onHold} tone="warning" />
+            <MiniStat label="Hidden prices" value={stats.deliveryNoteRequired} tone="warning" />
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-        <Card className="portal-card-safe">
-          <CardHeader>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <CardTitle>Product list</CardTitle>
-                <CardDescription>
-                  These records now come from Supabase/PostgreSQL through Prisma.
-                </CardDescription>
-              </div>
-              <Badge tone="success">Live database</Badge>
-            </div>
-          </CardHeader>
-
-          <CardContent className="p-0">
-            <div className="block p-3 md:hidden">
-              <div className="grid gap-3">
-                {products.map((product) => {
-                  const visibility = formatPublicVisibility(product);
-                  const incVat = calculatePriceIncVatPence(product.priceExVatPence, product.vatRateBasisPoints);
-
-                  return (
-                    <Link
-                      key={product.id}
-                      href={`/portal/sales/products/${product.code}`}
-                      className="rounded-2xl border border-freshpac-panel bg-white p-4 shadow-sm transition hover:border-freshpac-orange hover:bg-orange-50"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-orange">{product.code}</p>
-                          <p className="mt-1 truncate text-base font-black text-freshpac-charcoal">{product.name}</p>
-                          <p className="truncate text-xs text-freshpac-grey">{product.description || "No description recorded"}</p>
-                        </div>
-
-                        <Badge tone={getProductStatusTone(product.status)}>
-                          {formatProductStatus(product.status)}
-                        </Badge>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-1">
-                        <Badge tone={getProductTypeTone(product.productType)}>{formatProductType(product.productType)}</Badge>
-                        <Badge tone={product.vatCode === "T1" ? "warning" : "neutral"}>{product.vatCode}</Badge>
-                        <Badge tone={visibility === "Assigned customers only" ? "warning" : "neutral"}>{visibility}</Badge>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <MobileDetail label="Category" value={product.category || "None"} />
-                        <MobileDetail label="Group" value={product.productGroup || "None"} />
-                        <MobileDetail label="Pack" value={product.packSize || "None"} />
-                        <MobileDetail label="Assigned" value={String(product.customerAccess.length)} />
-                        <MobileDetail label="Ex VAT" value={formatMoneyFromPence(product.priceExVatPence)} />
-                        <MobileDetail label="Inc VAT" value={formatMoneyFromPence(incVat)} />
-                      </div>
-                    </Link>
-                  );
-                })}
-
-                {!products.length ? (
-                  <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                    No products found. Run <span className="font-bold">npm run prisma:seed</span> or create a product.
-                  </div>
-                ) : null}
-              </div>
+      <Card className="portal-card-safe">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle>Customer call list</CardTitle>
+              <CardDescription>
+                Showing {customers.length} customer{customers.length === 1 ? "" : "s"}.
+              </CardDescription>
             </div>
 
-            <div className="hidden md:block">
-              <div className="portal-scroll-panel">
-                <table className="fp-compact-table min-w-full border-collapse">
-                  <thead>
-                    <tr>
-                      <th>Code</th>
-                      <th>Product</th>
-                      <th>Type</th>
-                      <th>Status</th>
-                      <th>Category</th>
-                      <th>Group</th>
-                      <th>Pack</th>
-                      <th>VAT</th>
-                      <th>Ex VAT</th>
-                      <th>Inc VAT</th>
-                      <th>Visibility</th>
-                    </tr>
-                  </thead>
+            <Badge tone="success">Correct call-list route</Badge>
+          </div>
+        </CardHeader>
 
-                  <tbody>
-                    {products.map((product) => (
-                      <tr key={product.id}>
+        <CardContent className="p-0">
+          <div className="grid gap-2 p-3 md:hidden">
+            {customers.map((customer) => (
+              <CustomerCard key={customer.id} customer={customer} />
+            ))}
+
+            {!customers.length ? <EmptyState /> : null}
+          </div>
+
+          <div className="hidden md:block">
+            <div className="portal-scroll-panel">
+              <table className="fp-compact-table min-w-full border-collapse">
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Delivery</th>
+                    <th>Driver</th>
+                    <th>Method</th>
+                    <th>Pricing</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {customers.map((customer) => {
+                    const customerHref = `/portal/sales/customers/${encodeURIComponent(customer.accountNumber)}`;
+                    const newOrderHref = `/portal/sales/orders/new?customerId=${encodeURIComponent(customer.id)}`;
+
+                    return (
+                      <tr key={customer.id}>
+                        <td className="font-black">{customer.accountNumber}</td>
                         <td>
                           <Link
-                            href={`/portal/sales/products/${product.code}`}
+                            href={customerHref}
                             className="font-black text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
                           >
-                            {product.code}
+                            {customer.siteName}
                           </Link>
-                        </td>
-                        <td>
-                          <div className="font-bold text-freshpac-charcoal">{product.name}</div>
-                          <div className="max-w-md truncate text-xs text-freshpac-grey">
-                            {product.description || "No description recorded"}
+                          <div className="text-xs text-freshpac-grey">
+                            {customer.legalName || "No legal name recorded"}
                           </div>
                         </td>
                         <td>
-                          <Badge tone={getProductTypeTone(product.productType)}>{formatProductType(product.productType)}</Badge>
-                        </td>
-                        <td>
-                          <Badge tone={getProductStatusTone(product.status)}>{formatProductStatus(product.status)}</Badge>
-                        </td>
-                        <td>{product.category || "None"}</td>
-                        <td>{product.productGroup || "None"}</td>
-                        <td>{product.packSize || "None"}</td>
-                        <td>{product.vatCode}</td>
-                        <td>{formatMoneyFromPence(product.priceExVatPence)}</td>
-                        <td>{formatMoneyFromPence(calculatePriceIncVatPence(product.priceExVatPence, product.vatRateBasisPoints))}</td>
-                        <td>
-                          <Badge tone={formatPublicVisibility(product) === "Assigned customers only" ? "warning" : "neutral"}>
-                            {formatPublicVisibility(product)}
+                          <Badge tone={getCustomerStatusTone(String(customer.status))}>
+                            {formatCustomerStatus(String(customer.status))}
                           </Badge>
                         </td>
+                        <td>{customer.deliveryDay || "Not set"}</td>
+                        <td>{customer.driverOrCourier || "Not set"}</td>
+                        <td>{formatDeliveryMethod(String(customer.deliveryMethod || "Not set"))}</td>
+                        <td>
+                          <Badge tone={customer.priceVisibility ? "success" : "warning"}>
+                            {customer.priceVisibility ? "Prices visible" : "Delivery note"}
+                          </Badge>
+                        </td>
+                        <td>
+                          <div className="flex min-w-44 flex-wrap gap-1.5">
+                            <CompactActionLink href={customerHref} label="Open" />
+                            <CompactActionLink href={newOrderHref} label="New order" tone="primary" />
+                          </div>
+                        </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-                {!products.length ? (
-                  <div className="p-6 text-sm text-freshpac-grey">
-                    No products found. Run <span className="font-bold">npm run prisma:seed</span> or create a product.
-                  </div>
-                ) : null}
-              </div>
+              {!customers.length ? <EmptyState /> : null}
             </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid content-start gap-4">
-          <Card className="portal-card-safe">
-            <CardHeader>
-              <CardTitle>Restricted products</CardTitle>
-              <CardDescription>Coffee and retail products need customer assignment.</CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-3">
-              {products
-                .filter((product) => product.productType !== "NORMAL")
-                .map((product) => (
-                  <Link
-                    href={`/portal/sales/products/${product.code}`}
-                    key={product.id}
-                    className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-freshpac-charcoal">{product.name}</p>
-                        <p className="text-xs text-freshpac-grey">{product.code}</p>
-                      </div>
-                      <Badge tone={getProductTypeTone(product.productType)}>{formatProductType(product.productType)}</Badge>
-                    </div>
-
-                    <p className="mt-2 text-xs text-freshpac-grey">
-                      Assigned customers: {product.customerAccess.length}
-                    </p>
-                  </Link>
-                ))}
-
-              {!products.some((product) => product.productType !== "NORMAL") ? (
-                <p className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                  No restricted products found.
-                </p>
-              ) : null}
-            </CardContent>
-          </Card>
-
-          <Card className="portal-card-safe">
-            <CardHeader>
-              <CardTitle>Database status</CardTitle>
-              <CardDescription>The product module is now reading real records.</CardDescription>
-            </CardHeader>
-
-            <CardContent className="grid gap-2">
-              <Button type="button" variant="secondary">
-                Import Sage product list
-              </Button>
-              <Button type="button" variant="secondary">
-                Print stocktaking list
-              </Button>
-              <Button type="button" variant="secondary">
-                Print coffee pick list
-              </Button>
-              <Button type="button" variant="secondary">
-                Review inactive products
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </PortalShell>
+  );
+}
+
+async function getCallListCustomersFromDb({
+  q,
+  day,
+  driver
+}: {
+  q: string;
+  day: string;
+  driver: string;
+}) {
+  const where = buildCallListWhere({ q, day, driver });
+
+  return prisma.customerAccount.findMany({
+    where,
+    orderBy: [
+      {
+        deliveryDay: "asc"
+      },
+      {
+        driverOrCourier: "asc"
+      },
+      {
+        siteName: "asc"
+      }
+    ],
+    take: 250,
+    select: {
+      id: true,
+      accountNumber: true,
+      siteName: true,
+      legalName: true,
+      status: true,
+      deliveryDay: true,
+      deliveryMethod: true,
+      driverOrCourier: true,
+      priceVisibility: true
+    }
+  });
+}
+
+async function getCallListDriversFromDb() {
+  const customers = await prisma.customerAccount.findMany({
+    where: {
+      driverOrCourier: {
+        not: null
+      }
+    },
+    select: {
+      driverOrCourier: true
+    },
+    distinct: ["driverOrCourier"],
+    orderBy: {
+      driverOrCourier: "asc"
+    }
+  });
+
+  return customers
+    .map((customer) => customer.driverOrCourier || "")
+    .filter(Boolean);
+}
+
+async function getCallListStatsFromDb() {
+  const [total, active, onHold, deliveryNoteRequired] = await Promise.all([
+    prisma.customerAccount.count(),
+    prisma.customerAccount.count({
+      where: {
+        status: "ACTIVE"
+      }
+    }),
+    prisma.customerAccount.count({
+      where: {
+        status: "ON_HOLD"
+      }
+    }),
+    prisma.customerAccount.count({
+      where: {
+        priceVisibility: false
+      }
+    })
+  ]);
+
+  return {
+    total,
+    active,
+    onHold,
+    deliveryNoteRequired
+  };
+}
+
+function buildCallListWhere({
+  q,
+  day,
+  driver
+}: {
+  q: string;
+  day: string;
+  driver: string;
+}): Prisma.CustomerAccountWhereInput {
+  const conditions: Prisma.CustomerAccountWhereInput[] = [];
+
+  if (q.trim()) {
+    conditions.push({
+      OR: [
+        {
+          accountNumber: {
+            contains: q.trim(),
+            mode: "insensitive"
+          }
+        },
+        {
+          siteName: {
+            contains: q.trim(),
+            mode: "insensitive"
+          }
+        },
+        {
+          legalName: {
+            contains: q.trim(),
+            mode: "insensitive"
+          }
+        },
+        {
+          deliveryDay: {
+            contains: q.trim(),
+            mode: "insensitive"
+          }
+        },
+        {
+          driverOrCourier: {
+            contains: q.trim(),
+            mode: "insensitive"
+          }
+        }
+      ]
+    });
+  }
+
+  if (day && day !== "ALL") {
+    conditions.push({
+      deliveryDay: {
+        equals: day,
+        mode: "insensitive"
+      }
+    });
+  }
+
+  if (driver.trim()) {
+    conditions.push({
+      driverOrCourier: {
+        equals: driver.trim(),
+        mode: "insensitive"
+      }
+    });
+  }
+
+  if (!conditions.length) {
+    return {};
+  }
+
+  return {
+    AND: conditions
+  };
+}
+
+function CustomerCard({
+  customer
+}: {
+  customer: Awaited<ReturnType<typeof getCallListCustomersFromDb>>[number];
+}) {
+  const customerHref = `/portal/sales/customers/${encodeURIComponent(customer.accountNumber)}`;
+  const newOrderHref = `/portal/sales/orders/new?customerId=${encodeURIComponent(customer.id)}`;
+
+  return (
+    <div className="rounded-2xl border border-freshpac-panel bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-freshpac-orange">
+            {customer.accountNumber}
+          </p>
+          <p className="mt-0.5 truncate text-sm font-black text-freshpac-charcoal">
+            {customer.siteName}
+          </p>
+          <p className="truncate text-xs text-freshpac-grey">
+            {customer.legalName || "No legal name recorded"}
+          </p>
+        </div>
+
+        <Badge tone={getCustomerStatusTone(String(customer.status))}>
+          {formatCustomerStatus(String(customer.status))}
+        </Badge>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <MiniDetail icon={<CalendarDays className="size-3" />} label="Delivery" value={customer.deliveryDay || "Not set"} />
+        <MiniDetail icon={<Truck className="size-3" />} label="Driver" value={customer.driverOrCourier || "Not set"} />
+        <MiniDetail icon={<MapPin className="size-3" />} label="Method" value={formatDeliveryMethod(String(customer.deliveryMethod || "Not set"))} />
+        <MiniDetail icon={<UserRound className="size-3" />} label="Pricing" value={customer.priceVisibility ? "Prices visible" : "Delivery note"} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <CompactActionLink href={customerHref} label="Open customer" />
+        <CompactActionLink href={newOrderHref} label="New order" tone="primary" />
+      </div>
+    </div>
+  );
+}
+
+function buildCallListHref({
+  q,
+  day,
+  driver
+}: {
+  q: string;
+  day: string;
+  driver: string;
+}) {
+  const params = new URLSearchParams();
+
+  if (q) params.set("q", q);
+  if (day && day !== "ALL") params.set("day", day);
+  if (driver) params.set("driver", driver);
+
+  const query = params.toString();
+
+  return query ? `/portal/sales/call-list?${query}` : "/portal/sales/call-list";
+}
+
+function FilterLink({ href, active, label }: { href: string; active: boolean; label: string }) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center rounded-lg px-2.5 py-1.5 text-[11px] font-black transition ${
+        active
+          ? "bg-freshpac-orange text-freshpac-charcoal"
+          : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
+      }`}
+    >
+      {label}
+    </Link>
   );
 }
 
 function MiniStat({
   label,
   value,
-  icon,
   tone = "neutral"
 }: {
   label: string;
   value: number;
-  icon: ReactNode;
-  tone?: "neutral" | "success" | "warning" | "danger" | "info";
+  tone?: "neutral" | "success" | "warning";
 }) {
   const tones = {
     neutral: "bg-white text-freshpac-charcoal",
     success: "bg-emerald-50 text-emerald-700",
-    warning: "bg-amber-50 text-amber-800",
-    danger: "bg-red-50 text-red-700",
-    info: "bg-blue-50 text-blue-700"
+    warning: "bg-amber-50 text-amber-800"
   };
 
   return (
-    <div className={`rounded-2xl border border-freshpac-panel p-3 ${tones[tone]}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.12em] opacity-70">{label}</p>
-        {icon}
-      </div>
-      <p className="mt-2 text-2xl font-black">{value}</p>
+    <div className={`rounded-xl border border-freshpac-panel p-2 ${tones[tone]}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.1em] opacity-70">
+        {label}
+      </p>
+      <p className="mt-1 text-xl font-black">{value}</p>
     </div>
   );
 }
 
-function MobileDetail({ label, value }: { label: string; value: string }) {
+function MiniDetail({
+  icon,
+  label,
+  value
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="min-w-0 rounded-xl bg-freshpac-cream/70 p-2">
-      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">{label}</p>
-      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">{value}</p>
+      <div className="flex items-center gap-1 text-freshpac-grey">
+        {icon}
+        <p className="text-[10px] font-black uppercase tracking-[0.1em]">{label}</p>
+      </div>
+      <p className="mt-1 truncate text-xs font-bold text-freshpac-charcoal">
+        {value}
+      </p>
     </div>
   );
+}
+
+function CompactActionLink({
+  href,
+  label,
+  tone = "secondary"
+}: {
+  href: string;
+  label: string;
+  tone?: "primary" | "secondary";
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex h-8 items-center justify-center rounded-lg px-2.5 text-[11px] font-black transition ${
+        tone === "primary"
+          ? "bg-freshpac-orange text-freshpac-charcoal hover:bg-orange-400"
+          : "border border-freshpac-panel bg-white text-freshpac-charcoal hover:border-freshpac-orange hover:bg-orange-50"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="p-6 text-sm text-freshpac-grey">
+      No customers match that call-list search.
+    </div>
+  );
+}
+
+function formatCustomerStatus(status: string) {
+  const labels: Record<string, string> = {
+    ACTIVE: "Active",
+    ACTIVE_PREPAYMENT: "Active Prepayment",
+    ON_HOLD: "On Hold",
+    INACTIVE: "Inactive",
+    ARCHIVED: "Archived",
+    MARKED_FOR_DELETION: "Marked For Deletion"
+  };
+
+  return labels[status] || status.replace(/_/g, " ");
+}
+
+function getCustomerStatusTone(status: string) {
+  if (status === "ACTIVE" || status === "ACTIVE_PREPAYMENT") {
+    return "success";
+  }
+
+  if (status === "ON_HOLD") {
+    return "warning";
+  }
+
+  return "neutral";
+}
+
+function formatDeliveryMethod(method: string) {
+  return method.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

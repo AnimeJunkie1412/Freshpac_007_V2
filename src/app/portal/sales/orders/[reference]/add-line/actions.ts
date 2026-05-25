@@ -3,88 +3,33 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
-  addManualOrderLineFromDb,
   parseMoneyToPence,
-  parseVatPercentToBasisPoints,
-  removeManualOrderLineFromDb,
-  updateManualOrderLinePricingFromDb,
-  updateManualOrderLineQuantityFromDb
+  syncManualOrderPadFromDb
 } from "@/lib/sales/manual-order-lines-db";
 
-export async function addManualOrderLine(formData: FormData) {
+export async function saveManualOrderPad(formData: FormData) {
   const orderReference = readRequiredFormValue(formData, "orderReference");
-  const productId = readRequiredFormValue(formData, "productId");
   const q = String(formData.get("q") || "");
-  const quantity = Number(formData.get("quantity") || 1);
-  const priceExVatPence = parseMoneyToPence(String(formData.get("priceExVat") || ""));
-  const vatRateBasisPoints = parseVatPercentToBasisPoints(String(formData.get("vatRate") || ""));
 
-  await addManualOrderLineFromDb({
-    orderReference,
+  const productIds = formData
+    .getAll("productId")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  const rows = productIds.map((productId) => ({
     productId,
-    quantity,
-    pricing: {
-      priceExVatPence,
-      vatRateBasisPoints
-    }
-  });
+    quantity: Number(formData.get(`quantity_${productId}`) || 0),
+    priceExVatPence: parseMoneyToPence(String(formData.get(`priceExVat_${productId}`) || ""))
+  }));
 
-  revalidateManualOrderPaths(orderReference);
-
-  redirectToAddLine(orderReference, q);
-}
-
-export async function updateManualOrderLineQuantity(formData: FormData) {
-  const orderReference = readRequiredFormValue(formData, "orderReference");
-  const lineId = readRequiredFormValue(formData, "lineId");
-  const q = String(formData.get("q") || "");
-  const quantity = Number(formData.get("quantity") || 1);
-
-  await updateManualOrderLineQuantityFromDb({
+  await syncManualOrderPadFromDb({
     orderReference,
-    lineId,
-    quantity
+    rows
   });
 
   revalidateManualOrderPaths(orderReference);
 
-  redirectToAddLine(orderReference, q);
-}
-
-export async function updateManualOrderLinePricing(formData: FormData) {
-  const orderReference = readRequiredFormValue(formData, "orderReference");
-  const lineId = readRequiredFormValue(formData, "lineId");
-  const q = String(formData.get("q") || "");
-  const quantity = Number(formData.get("quantity") || 1);
-  const priceExVatPence = parseMoneyToPence(String(formData.get("priceExVat") || ""));
-  const vatRateBasisPoints = parseVatPercentToBasisPoints(String(formData.get("vatRate") || ""));
-
-  await updateManualOrderLinePricingFromDb({
-    orderReference,
-    lineId,
-    quantity,
-    priceExVatPence: priceExVatPence ?? 0,
-    vatRateBasisPoints: vatRateBasisPoints ?? 0
-  });
-
-  revalidateManualOrderPaths(orderReference);
-
-  redirectToAddLine(orderReference, q);
-}
-
-export async function removeManualOrderLine(formData: FormData) {
-  const orderReference = readRequiredFormValue(formData, "orderReference");
-  const lineId = readRequiredFormValue(formData, "lineId");
-  const q = String(formData.get("q") || "");
-
-  await removeManualOrderLineFromDb({
-    orderReference,
-    lineId
-  });
-
-  revalidateManualOrderPaths(orderReference);
-
-  redirectToAddLine(orderReference, q);
+  redirectToOrderPad(orderReference, q);
 }
 
 function revalidateManualOrderPaths(orderReference: string) {
@@ -94,9 +39,12 @@ function revalidateManualOrderPaths(orderReference: string) {
   revalidatePath(`/portal/sales/orders/${encodeURIComponent(orderReference)}/add-line`);
   revalidatePath(`/portal/sales/orders/${encodeURIComponent(orderReference)}/print`);
   revalidatePath(`/portal/sales/orders/${encodeURIComponent(orderReference)}/delivery-note`);
+  revalidatePath("/portal/sales/orders/print");
+  revalidatePath("/portal/sales/orders/delivery-notes");
+  revalidatePath("/portal/sales/orders/pick-list");
 }
 
-function redirectToAddLine(orderReference: string, q: string) {
+function redirectToOrderPad(orderReference: string, q: string) {
   const params = new URLSearchParams();
 
   if (q) {

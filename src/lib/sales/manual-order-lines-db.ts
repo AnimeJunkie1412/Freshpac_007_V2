@@ -10,6 +10,12 @@ export type ManualOrderLinePricingInput = {
   vatRateBasisPoints?: number | null;
 };
 
+export type ManualOrderPadRowInput = {
+  productId: string;
+  quantity: number;
+  priceExVatPence?: number | null;
+};
+
 export function formatMoneyFromPence(value?: number | null) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -141,6 +147,57 @@ export async function getManualOrderForLineEditFromDb(reference: string) {
       }
     }
   });
+}
+
+export async function getCustomerOrderPadFromDb({
+  orderReference,
+  q
+}: {
+  orderReference: string;
+  q?: string;
+}) {
+  const order = await getManualOrderForLineEditFromDb(orderReference);
+
+  if (!order) {
+    throw new Error("Order was not found.");
+  }
+
+  const search = q?.trim() || "";
+  const currentProductIds = order.lines
+    .map((line: any) => line.productId)
+    .filter(Boolean);
+
+  const pastProductIds = await getPastOrderedProductIds(order.customerId);
+  const knownProductIds = Array.from(new Set([...currentProductIds, ...pastProductIds]));
+
+  const where = buildOrderPadProductWhere({
+    q: search,
+    customerId: order.customerId,
+    knownProductIds
+  });
+
+  const products = await prisma.product.findMany({
+    where,
+    orderBy: [
+      {
+        code: "asc"
+      }
+    ],
+    include: {
+      customerPrices: {
+        where: {
+          customerId: order.customerId
+        },
+        take: 1
+      }
+    },
+    take: search ? 120 : 300
+  } as any);
+
+  return {
+    order,
+    products
+  };
 }
 
 export async function getManualOrderProductOptionsFromDb(filters?: ManualOrderProductFilters) {
@@ -283,6 +340,153 @@ export async function addManualOrderLineFromDb({
     } as any
   });
 
+  await ensureProductOnCustomerShoppingList(order.customerId, product.id);
+  await recalculateOrderTotals(order.id);
+
+  return order;
+}
+
+export async function syncManualOrderPadFromDb({
+  orderReference,
+  rows
+}: {
+  orderReference: string;
+  rows: ManualOrderPadRowInput[];
+}) {
+  const order = await prisma.order.findFirst({
+    where: {
+      OR: [
+        {
+          reference: orderReference
+        },
+        {
+          temporaryReference: orderReference
+        }
+      ]
+    },
+    include: {
+      customer: true,
+      lines: true
+    }
+  });
+
+  if (!order) {
+    throw new Error("Order was not found.");
+  }
+
+  const cleanRows = rows
+    .map((row) => ({
+      productId: row.productId.trim(),
+      quantity: Math.max(0, Math.floor(Number.isFinite(row.quantity) ? row.quantity : 0)),
+      priceExVatPence:
+        typeof row.priceExVatPence === "number" && row.priceExVatPence >= 0
+          ? Math.round(row.priceExVatPence)
+          : null
+    }))
+    .filter((row) => row.productId);
+
+  const productIds = Array.from(new Set(cleanRows.map((row) => row.productId)));
+
+  if (!productIds.length) {
+    return order;
+  }
+
+  const products = await prisma.product.findMany({
+    where: {
+      id: {
+        in: productIds
+      }
+    },
+    include: {
+      customerPrices: {
+        where: {
+          customerId: order.customerId
+        },
+        take: 1
+      }
+    }
+  } as any);
+
+  const productById = new Map(products.map((product: any) => [product.id, product]));
+  const existingLineByProductId = new Map<string, any>();
+
+  for (const line of order.lines as any[]) {
+    if (line.productId && !existingLineByProductId.has(line.productId)) {
+      existingLineByProductId.set(line.productId, line);
+    }
+  }
+
+  for (const row of cleanRows) {
+    const product = productById.get(row.productId);
+
+    if (!product) {
+      continue;
+    }
+
+    const existingLine = existingLineByProductId.get(row.productId);
+
+    if (row.quantity <= 0) {
+      if (existingLine) {
+        await prisma.orderLine.delete({
+          where: {
+            id: existingLine.id
+          }
+        });
+      }
+
+      continue;
+    }
+
+    const priceExVatPence =
+      row.priceExVatPence ??
+      getProductCustomerPriceExVatPence(product) ??
+      getProductDefaultPriceExVatPence(product);
+
+    const vatRateBasisPoints = getProductVatRateBasisPoints(product);
+    const vatPence = calculateVatAmountPence(priceExVatPence, vatRateBasisPoints);
+    const priceIncVatPence = calculatePriceIncVatPence(priceExVatPence, vatRateBasisPoints);
+    const lineTotalPence = priceIncVatPence * row.quantity;
+
+    if (existingLine) {
+      await prisma.orderLine.update({
+        where: {
+          id: existingLine.id
+        },
+        data: {
+          quantity: row.quantity,
+          productCodeSnapshot: (product as any).code || existingLine.productCodeSnapshot,
+          descriptionSnapshot: getProductDescription(product),
+          packSizeSnapshot: (product as any).packSize || null,
+          priceExVatPence,
+          vatPence,
+          priceIncVatPence,
+          lineTotalPence,
+          source: existingLine.source || "FRESHPAC_ADDED",
+          lockedFromCustomer: true
+        } as any
+      });
+    } else {
+      await prisma.orderLine.create({
+        data: {
+          orderId: order.id,
+          productId: product.id,
+          quantity: row.quantity,
+          productCodeSnapshot: (product as any).code || "UNKNOWN",
+          descriptionSnapshot: getProductDescription(product),
+          packSizeSnapshot: (product as any).packSize || null,
+          priceExVatPence,
+          vatPence,
+          priceIncVatPence,
+          lineTotalPence,
+          source: "FRESHPAC_ADDED",
+          lockedFromCustomer: true
+        } as any
+      });
+    }
+
+    await ensureProductOnCustomerShoppingList(order.customerId, product.id);
+  }
+
   await recalculateOrderTotals(order.id);
 
   return order;
@@ -422,6 +626,99 @@ export async function recalculateOrderTotals(orderId: string) {
   });
 }
 
+function buildOrderPadProductWhere({
+  q,
+  customerId,
+  knownProductIds
+}: {
+  q: string;
+  customerId: string;
+  knownProductIds: string[];
+}) {
+  const searchWhere = q
+    ? {
+        OR: [
+          {
+            code: {
+              contains: q,
+              mode: "insensitive"
+            }
+          },
+          {
+            description: {
+              contains: q,
+              mode: "insensitive"
+            }
+          },
+          {
+            productGroup: {
+              contains: q,
+              mode: "insensitive"
+            }
+          },
+          {
+            packSize: {
+              contains: q,
+              mode: "insensitive"
+            }
+          }
+        ]
+      }
+    : null;
+
+  if (q) {
+    return searchWhere as any;
+  }
+
+  const baseOr: any[] = [
+    {
+      customerAccess: {
+        some: {
+          customerId
+        }
+      }
+    }
+  ];
+
+  if (knownProductIds.length) {
+    baseOr.push({
+      id: {
+        in: knownProductIds
+      }
+    });
+  }
+
+  return {
+    OR: baseOr
+  } as any;
+}
+
+async function getPastOrderedProductIds(customerId: string) {
+  const lines = await (prisma as any).orderLine.findMany({
+    where: {
+      productId: {
+        not: null
+      },
+      order: {
+        customerId
+      }
+    },
+    select: {
+      productId: true
+    },
+    distinct: ["productId"],
+    take: 500
+  });
+
+  return Array.from(
+    new Set(
+      lines
+        .map((line: any) => line.productId)
+        .filter(Boolean)
+    )
+  ) as string[];
+}
+
 async function getCustomerSpecificPriceExVatPence(customerId: string, productId: string) {
   const customerPriceDelegate = (prisma as any).customerPrice;
 
@@ -446,6 +743,43 @@ async function getCustomerSpecificPriceExVatPence(customerId: string, productId:
   const value = Number(customerPrice.priceExVatPence);
 
   return Number.isFinite(value) ? value : null;
+}
+
+async function ensureProductOnCustomerShoppingList(customerId: string, productId: string) {
+  try {
+    const existing = await (prisma as any).product.findFirst({
+      where: {
+        id: productId,
+        customerAccess: {
+          some: {
+            customerId
+          }
+        }
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (existing) {
+      return;
+    }
+
+    await (prisma as any).product.update({
+      where: {
+        id: productId
+      },
+      data: {
+        customerAccess: {
+          create: {
+            customerId
+          }
+        }
+      }
+    });
+  } catch {
+    return;
+  }
 }
 
 async function getManualOrderWithLineOrThrow(orderReference: string, lineId: string) {
