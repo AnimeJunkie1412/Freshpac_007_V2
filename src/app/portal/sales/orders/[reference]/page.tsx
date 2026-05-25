@@ -3,11 +3,12 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   Banknote,
-  FileText,
   PackagePlus,
+  PencilLine,
   Printer,
   RotateCcw,
   Send,
+  ShoppingBasket,
   Truck,
   XCircle
 } from "lucide-react";
@@ -64,7 +65,8 @@ export default async function OrderDetailPage({
   const encodedOrderReference = encodeURIComponent(orderReference);
   const printHref = `/portal/sales/orders/${encodedOrderReference}/print`;
   const deliveryNoteHref = `/portal/sales/orders/${encodedOrderReference}/delivery-note`;
-  const addLineHref = `/portal/sales/orders/${encodedOrderReference}/add-line`;
+  const orderPadHref = `/portal/sales/orders/${encodedOrderReference}/add-line`;
+  const editHref = `/portal/sales/orders/${encodedOrderReference}/edit`;
   const priceVisible = order.priceVisibilityAtOrder;
   const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
   const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
@@ -88,9 +90,14 @@ export default async function OrderDetailPage({
         </Link>
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          <LinkButton href={addLineHref} variant="secondary" size="sm">
-            <PackagePlus className="mr-2 size-4" />
-            Add line
+          <LinkButton href={orderPadHref} variant="secondary" size="sm">
+            <ShoppingBasket className="mr-2 size-4" />
+            Order pad
+          </LinkButton>
+
+          <LinkButton href={editHref} variant="secondary" size="sm">
+            <PencilLine className="mr-2 size-4" />
+            Edit order
           </LinkButton>
 
           {isDraft ? (
@@ -159,7 +166,7 @@ export default async function OrderDetailPage({
             <div>
               <p className="font-black">Draft manual order</p>
               <p className="mt-1">
-                Add product lines, check pricing, then submit the order. It will then appear in the normal processing queue.
+                Use the order pad to set quantities, check pricing, then submit the order. It will then appear in the normal processing queue.
               </p>
             </div>
 
@@ -174,7 +181,7 @@ export default async function OrderDetailPage({
 
           {!order.lines.length ? (
             <p className="mt-3 font-bold">
-              Add at least one product line before submitting this order.
+              Add at least one product quantity in the order pad before submitting this order.
             </p>
           ) : null}
         </div>
@@ -194,14 +201,18 @@ export default async function OrderDetailPage({
                 {order.editedByFreshpac ? <Badge tone="warning">Edited by Freshpac</Badge> : null}
               </div>
 
-              <h2 className="mt-3 break-words text-2xl font-black tracking-tight text-freshpac-charcoal">{orderReference}</h2>
+              <h2 className="mt-3 break-words text-2xl font-black tracking-tight text-freshpac-charcoal">
+                {orderReference}
+              </h2>
               <p className="break-words text-sm text-freshpac-grey">{order.customer.siteName}</p>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <DetailField label="Order date" value={formatDateTime(order.createdAt)} />
                 <DetailField
                   label="Delivery"
-                  value={`${order.deliveryDay || order.customer.deliveryDay || "Not set"} · ${order.driverOrCourier || order.customer.driverOrCourier || "No driver"}`}
+                  value={`${order.deliveryDay || order.customer.deliveryDay || "Not set"} · ${
+                    order.driverOrCourier || order.customer.driverOrCourier || "No driver"
+                  }`}
                 />
                 <DetailField label="Submitted by" value={order.placedByUser?.fullName || "System"} />
                 <DetailField label="Customer PO" value={order.customerPoNumber || "None"} />
@@ -242,10 +253,17 @@ export default async function OrderDetailPage({
           title="Overview"
           description="Order status, totals and processing state."
           action={
-            <LinkButton href={deliveryNoteHref} variant="secondary" size="sm">
-              <Truck className="mr-2 size-4" />
-              Delivery note
-            </LinkButton>
+            <div className="flex flex-wrap gap-2">
+              <LinkButton href={editHref} variant="secondary" size="sm">
+                <PencilLine className="mr-2 size-4" />
+                Edit
+              </LinkButton>
+
+              <LinkButton href={deliveryNoteHref} variant="secondary" size="sm">
+                <Truck className="mr-2 size-4" />
+                Delivery note
+              </LinkButton>
+            </div>
           }
         >
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -265,11 +283,11 @@ export default async function OrderDetailPage({
         <ModuleSection
           id="lines"
           title="Order lines"
-          description="Staff view includes product codes. Customer-facing PDFs must respect price visibility."
+          description="Use the order pad to set or change quantities from the customer shopping list and past ordered items."
           action={
-            <LinkButton href={addLineHref} variant="secondary" size="sm">
-              <PackagePlus className="mr-2 size-4" />
-              Add line
+            <LinkButton href={orderPadHref} variant="secondary" size="sm">
+              <ShoppingBasket className="mr-2 size-4" />
+              Open order pad
             </LinkButton>
           }
         >
@@ -307,7 +325,7 @@ export default async function OrderDetailPage({
 
             {!order.lines.length ? (
               <div className="rounded-2xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
-                No order lines recorded.
+                No order lines recorded. Open the order pad and set quantities.
               </div>
             ) : null}
           </div>
@@ -352,7 +370,11 @@ export default async function OrderDetailPage({
                 </tbody>
               </table>
 
-              {!order.lines.length ? <div className="p-6 text-sm text-freshpac-grey">No order lines recorded.</div> : null}
+              {!order.lines.length ? (
+                <div className="p-6 text-sm text-freshpac-grey">
+                  No order lines recorded. Open the order pad and set quantities.
+                </div>
+              ) : null}
             </div>
           </div>
         </ModuleSection>
@@ -413,8 +435,8 @@ export default async function OrderDetailPage({
               Delivery note PDF
             </LinkButton>
 
-            <LinkButton href={addLineHref} variant="secondary">
-              Add product line
+            <LinkButton href={orderPadHref} variant="secondary">
+              Order pad
             </LinkButton>
 
             {isDraft ? (
