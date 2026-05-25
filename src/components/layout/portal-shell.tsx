@@ -12,7 +12,6 @@ import {
   Route,
   Settings,
   ShoppingBasket,
-  Truck,
   UsersRound,
   Wrench
 } from "lucide-react";
@@ -45,8 +44,8 @@ export function PortalShell({ title, subtitle, activeHref = "/portal", children 
     <div className="min-h-screen bg-freshpac-cream text-freshpac-charcoal">
       <header className="sticky top-0 z-40 border-b border-freshpac-panel bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-3 py-2 sm:px-4">
-          <Link href="/portal" className="flex min-w-0 items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-freshpac-orange text-sm font-black text-freshpac-charcoal">
+          <Link href="/portal" className="flex min-w-0 shrink-0 items-center gap-2">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-freshpac-orange text-sm font-black text-freshpac-charcoal">
               FP
             </div>
             <div className="min-w-0">
@@ -73,7 +72,7 @@ export function PortalShell({ title, subtitle, activeHref = "/portal", children 
             </div>
           </div>
 
-          <div className="rounded-xl border border-freshpac-panel bg-freshpac-cream px-2.5 py-1.5 text-right">
+          <div className="shrink-0 rounded-xl border border-freshpac-panel bg-freshpac-cream px-2.5 py-1.5 text-right">
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-grey">
               Portal
             </p>
@@ -83,7 +82,7 @@ export function PortalShell({ title, subtitle, activeHref = "/portal", children 
 
         <div className="border-t border-freshpac-panel bg-white md:hidden">
           <div className="portal-scroll-panel">
-            <nav className="flex min-w-max gap-1 px-3 py-2">
+            <nav className="flex min-w-max flex-nowrap gap-1 px-3 py-2">
               {navItems.slice(0, 10).map((item) => (
                 <NavLink
                   key={item.href}
@@ -119,7 +118,7 @@ export function PortalShell({ title, subtitle, activeHref = "/portal", children 
                   {title}
                 </h1>
                 {subtitle ? (
-                  <p className="mt-0.5 text-xs font-medium leading-5 text-freshpac-grey sm:text-sm">
+                  <p className="mt-0.5 truncate text-xs font-medium leading-5 text-freshpac-grey sm:text-sm">
                     {subtitle}
                   </p>
                 ) : null}
@@ -146,14 +145,14 @@ function NavLink({
   return (
     <Link
       href={item.href}
-      className={`inline-flex h-8 items-center rounded-xl px-2.5 text-xs font-black transition ${
+      className={`inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-xl px-2.5 text-xs font-black transition ${
         active
           ? "bg-freshpac-orange text-freshpac-charcoal"
           : "text-freshpac-grey hover:bg-orange-50 hover:text-freshpac-charcoal"
       }`}
     >
-      <Icon className="mr-1.5 size-3.5" />
-      {item.label}
+      <Icon className="mr-1.5 size-3.5 shrink-0" />
+      <span className="whitespace-nowrap">{item.label}</span>
     </Link>
   );
 }
@@ -176,8 +175,8 @@ function SideNavLink({
           : "text-freshpac-grey hover:bg-orange-50 hover:text-freshpac-charcoal"
       }`}
     >
-      <Icon className="mr-2 size-4" />
-      <span className="truncate">{item.label}</span>
+      <Icon className="mr-2 size-4 shrink-0" />
+      <span className="truncate whitespace-nowrap">{item.label}</span>
     </Link>
   );
 }

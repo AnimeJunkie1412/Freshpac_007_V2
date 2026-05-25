@@ -282,17 +282,17 @@ export default async function AddManualOrderLinePage({
 
               <CardContent className="p-0">
                 <div className="max-h-[70vh] overflow-auto">
-                  <table className="w-full min-w-[660px] border-collapse text-[10.5px]">
+                  <table className="min-w-[920px] border-collapse text-[10.5px]">
                     <thead className="sticky top-0 z-10 bg-freshpac-charcoal text-left text-white">
                       <tr>
-                        <CompactTh>Code</CompactTh>
-                        <CompactTh>Product</CompactTh>
-                        <CompactTh>Pack</CompactTh>
-                        <CompactTh>Using ex</CompactTh>
-                        <CompactTh>VAT</CompactTh>
-                        <CompactTh>Inc</CompactTh>
-                        <CompactTh>Qty</CompactTh>
-                        <CompactTh>Price</CompactTh>
+                        <CompactTh className="w-24">Code</CompactTh>
+                        <CompactTh className="w-72">Product</CompactTh>
+                        <CompactTh className="w-20">Pack</CompactTh>
+                        <CompactTh className="w-28">Using ex</CompactTh>
+                        <CompactTh className="w-24">VAT</CompactTh>
+                        <CompactTh className="w-24">Inc</CompactTh>
+                        <CompactTh className="w-20">Qty</CompactTh>
+                        <CompactTh className="w-24">Price</CompactTh>
                       </tr>
                     </thead>
 
@@ -354,50 +354,50 @@ function OrderPadProductRow({
 
   return (
     <tr className={`border-b border-freshpac-panel align-middle hover:bg-orange-50 ${isActive ? "bg-emerald-50" : ""}`}>
-      <CompactTd>
+      <CompactTd className="w-24">
         <input type="hidden" name="productId" value={productId} />
-        <p className="font-black text-freshpac-charcoal">{(product as any).code}</p>
+        <p className="truncate whitespace-nowrap font-black text-freshpac-charcoal">{(product as any).code}</p>
       </CompactTd>
 
-      <CompactTd>
-        <p className="max-w-52 truncate font-black leading-4 text-freshpac-charcoal">
+      <CompactTd className="w-72">
+        <p className="truncate whitespace-nowrap font-black leading-4 text-freshpac-charcoal">
           {getProductDisplayName(product)}
         </p>
-        <p className="mt-0.5 max-w-52 truncate text-[10px] leading-3 text-freshpac-grey">
+        <p className="mt-0.5 truncate whitespace-nowrap text-[10px] leading-3 text-freshpac-grey">
           {getProductDescription(product)}
         </p>
       </CompactTd>
 
-      <CompactTd>
-        <p className="max-w-16 truncate leading-4">{(product as any).packSize || "None"}</p>
+      <CompactTd className="w-20">
+        <p className="truncate whitespace-nowrap leading-4">{(product as any).packSize || "None"}</p>
       </CompactTd>
 
-      <CompactTd>
-        <p className="font-black text-freshpac-charcoal">
+      <CompactTd className="w-28">
+        <p className="whitespace-nowrap font-black text-freshpac-charcoal">
           {formatMoneyFromPence(effectivePriceExVatPence)}
         </p>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1 whitespace-nowrap">
           <Badge tone={pricingSource === "Customer" || pricingSource === "Order" ? "success" : "neutral"}>
             {pricingSource === "Customer" ? "Cust" : pricingSource === "Order" ? "Order" : "Def"}
           </Badge>
           {defaultPriceExVatPence !== effectivePriceExVatPence ? (
-            <span className="text-[10px] text-freshpac-grey">
+            <span className="whitespace-nowrap text-[10px] text-freshpac-grey">
               Def {formatMoneyFromPence(defaultPriceExVatPence)}
             </span>
           ) : null}
         </div>
       </CompactTd>
 
-      <CompactTd>
-        <p>{formatMoneyFromPence(vatPence)}</p>
-        <p className="text-[10px] text-freshpac-grey">{formatVatRate(vatRateBasisPoints)}</p>
+      <CompactTd className="w-24">
+        <p className="whitespace-nowrap">{formatMoneyFromPence(vatPence)}</p>
+        <p className="whitespace-nowrap text-[10px] text-freshpac-grey">{formatVatRate(vatRateBasisPoints)}</p>
       </CompactTd>
 
-      <CompactTd>
-        <p className="font-black text-freshpac-charcoal">{formatMoneyFromPence(priceIncVatPence)}</p>
+      <CompactTd className="w-24">
+        <p className="whitespace-nowrap font-black text-freshpac-charcoal">{formatMoneyFromPence(priceIncVatPence)}</p>
       </CompactTd>
 
-      <CompactTd>
+      <CompactTd className="w-20">
         <Input
           name={`quantity_${productId}`}
           type="number"
@@ -408,7 +408,7 @@ function OrderPadProductRow({
         />
       </CompactTd>
 
-      <CompactTd>
+      <CompactTd className="w-24">
         <Input
           name={`priceExVat_${productId}`}
           defaultValue={(effectivePriceExVatPence / 100).toFixed(2)}
@@ -432,7 +432,7 @@ function PadFilterLink({
   return (
     <Link
       href={href}
-      className={`inline-flex h-7 items-center rounded-lg px-2.5 text-[11px] font-black transition ${
+      className={`inline-flex h-7 items-center whitespace-nowrap rounded-lg px-2.5 text-[11px] font-black transition ${
         active
           ? "bg-freshpac-orange text-freshpac-charcoal"
           : "border border-freshpac-panel bg-white text-freshpac-grey hover:border-freshpac-orange hover:text-freshpac-charcoal"
@@ -470,27 +470,39 @@ function buildOrderPadHref({
 function TinyMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-lg bg-freshpac-cream/70 p-1.5">
-      <p className="text-[9px] font-black uppercase tracking-[0.08em] text-freshpac-grey">
+      <p className="truncate whitespace-nowrap text-[9px] font-black uppercase tracking-[0.08em] text-freshpac-grey">
         {label}
       </p>
-      <p className="mt-0.5 truncate text-[11px] font-black text-freshpac-charcoal">
+      <p className="mt-0.5 truncate whitespace-nowrap text-[11px] font-black text-freshpac-charcoal">
         {value}
       </p>
     </div>
   );
 }
 
-function CompactTh({ children }: { children: ReactNode }) {
+function CompactTh({
+  children,
+  className = ""
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <th className="whitespace-nowrap px-1.5 py-1.5 text-[9.5px] font-black uppercase tracking-[0.1em]">
+    <th className={`whitespace-nowrap px-2 py-1.5 text-[9.5px] font-black uppercase tracking-[0.1em] ${className}`}>
       {children}
     </th>
   );
 }
 
-function CompactTd({ children }: { children: ReactNode }) {
+function CompactTd({
+  children,
+  className = ""
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <td className="px-1.5 py-1.5 text-[10.5px] font-semibold leading-4 text-freshpac-charcoal">
+    <td className={`whitespace-nowrap px-2 py-1.5 text-[10.5px] font-semibold leading-4 text-freshpac-charcoal ${className}`}>
       {children}
     </td>
   );
