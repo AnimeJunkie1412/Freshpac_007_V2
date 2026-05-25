@@ -25,7 +25,7 @@ export default async function CustomerUsersPage({
   searchParams
 }: {
   params: Promise<{
-    accountNumber: string;
+    account: string;
   }>;
   searchParams?: {
     created?: string;
@@ -33,8 +33,8 @@ export default async function CustomerUsersPage({
     disabled?: string;
   };
 }) {
-  const { accountNumber } = await params;
-  const decodedAccountNumber = decodeURIComponent(accountNumber);
+  const { account } = await params;
+  const decodedAccountNumber = decodeURIComponent(account);
   const customer = await getCustomerWithUsersFromDb(decodedAccountNumber);
 
   if (!customer) {

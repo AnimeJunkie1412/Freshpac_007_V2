@@ -13,7 +13,7 @@ export default function LoginPage({
   };
 }) {
   const error = searchParams?.error;
-  const redirectTo = searchParams?.redirectTo || "/portal";
+  const redirectTo = searchParams?.redirectTo || "";
 
   return (
     <main className="min-h-screen bg-freshpac-cream px-4 py-10">
@@ -24,20 +24,20 @@ export default function LoginPage({
           </p>
 
           <h1 className="mt-4 text-4xl font-black tracking-tight">
-            Operations Portal
+            Sign in
           </h1>
 
           <p className="mt-4 text-sm leading-6 text-white/75">
-            Sign in with your Freshpac username and password.
+            Staff, engineers and customer users can sign in here. We’ll send you to the right portal for your role.
           </p>
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center gap-2 font-black text-white">
               <LockKeyhole className="size-4 text-freshpac-orange" />
-              Protected staff area
+              Protected Freshpac access
             </div>
             <p className="mt-2 text-sm leading-6 text-white/70">
-              Usernames are mapped to internal Freshpac login accounts.
+              Staff users go to the operations portal. Customer users go to the trade ordering portal.
             </p>
           </div>
         </section>
@@ -46,7 +46,7 @@ export default function LoginPage({
           <CardHeader>
             <CardTitle>Sign in</CardTitle>
             <CardDescription>
-              Use your username, for example admin, sales or engineer.
+              Use your username or email address and password.
             </CardDescription>
           </CardHeader>
 
@@ -63,8 +63,16 @@ export default function LoginPage({
               <Alert message="You signed in, but no Freshpac user profile exists for this account." />
             ) : null}
 
+            {error === "disabled" ? (
+              <Alert message="This login is disabled. Ask an administrator to enable it." />
+            ) : null}
+
+            {error === "customer" ? (
+              <Alert message="This customer login is not linked to a customer account." />
+            ) : null}
+
             {error === "forbidden" ? (
-              <Alert message="Your role does not have access to that portal area." />
+              <Alert message="Your role does not have access to a portal area." />
             ) : null}
 
             <form action={loginWithPassword} className="grid gap-5">
@@ -72,16 +80,27 @@ export default function LoginPage({
 
               <label className="grid gap-2">
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">
-                  Username
+                  Username or email
                 </span>
-                <Input name="username" required placeholder="admin" autoComplete="username" />
+                <Input
+                  name="username"
+                  required
+                  placeholder="admin or testcustomer@freshpac.test"
+                  autoComplete="username"
+                />
               </label>
 
               <label className="grid gap-2">
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-freshpac-grey">
                   Password
                 </span>
-                <Input name="password" type="password" required placeholder="Password" autoComplete="current-password" />
+                <Input
+                  name="password"
+                  type="password"
+                  required
+                  placeholder="Password"
+                  autoComplete="current-password"
+                />
               </label>
 
               <Button type="submit">

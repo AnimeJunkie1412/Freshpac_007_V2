@@ -1,40 +1,29 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getOrCreateCustomerDraftOrderFromDb } from "@/lib/customer-portal/customer-portal-db";
 
-const tradeRequestSchema = z.object({
-  name: z.string().min(2),
-  phone: z.string().min(5),
-  email: z.string().email(),
-  businessName: z.string().min(2),
-  businessAddress: z.string().min(5),
-  relationToCompany: z.string().min(2),
-  notes: z.string().optional()
-});
+export async function startCustomerOrder() {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
 
-export async function createTradeAccountRequest(formData: FormData) {
-  const parsed = tradeRequestSchema.safeParse({
-    name: formData.get("name"),
-    phone: formData.get("phone"),
-    email: formData.get("email"),
-    businessName: formData.get("businessName"),
-    businessAddress: formData.get("businessAddress"),
-    relationToCompany: formData.get("relationToCompany"),
-    notes: formData.get("notes") || ""
-  });
-
-  if (!parsed.success) {
-    redirect("/trade-account?status=invalid");
+  if (!user) {
+    redirect("/login?redirectTo=/trade-account");
   }
 
-  await prisma.tradeAccountRequest.create({
-    data: {
-      ...parsed.data,
-      status: "NEW"
-    }
+  const order = await getOrCreateCustomerDraftOrderFromDb({
+    authUserId: user.id,
+    email: user.email
   });
 
-  redirect("/trade-account?status=success");
+  const reference = order.reference || order.temporaryReference;
+
+  if (!reference) {
+    redirect("/trade-account?error=order");
+  }
+
+  redirect(`/trade-account/order/${encodeURIComponent(reference)}`);
 }
