@@ -75,6 +75,18 @@ export default async function AddManualOrderLinePage({
 
   const activeLines = (order.lines as any[]).filter((line) => line.quantity > 0);
 
+  const sortedProducts = [...products].sort((a: any, b: any) => {
+    const aLine = existingLineByProductId.get(a.id);
+    const bLine = existingLineByProductId.get(b.id);
+    const aQty = aLine?.quantity || 0;
+    const bQty = bLine?.quantity || 0;
+
+    if (aQty > 0 && bQty === 0) return -1;
+    if (bQty > 0 && aQty === 0) return 1;
+
+    return String(a.code || "").localeCompare(String(b.code || ""));
+  });
+
   return (
     <PortalShell
       title={`Order pad ${orderReference}`}
@@ -139,13 +151,13 @@ export default async function AddManualOrderLinePage({
             <CardHeader className="p-3 pb-1">
               <CardTitle className="text-sm">Active lines</CardTitle>
               <CardDescription className="text-[11px] leading-4">
-                Change quantity in the pad table.
+                These rows are highlighted in the pad.
               </CardDescription>
             </CardHeader>
 
             <CardContent className="max-h-[54vh] space-y-1.5 overflow-auto p-3 pt-1">
               {activeLines.map((line) => (
-                <div key={line.id} className="rounded-xl border border-freshpac-panel bg-white p-2">
+                <div key={line.id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-freshpac-orange">
@@ -159,7 +171,7 @@ export default async function AddManualOrderLinePage({
                       </p>
                     </div>
 
-                    <span className="rounded-lg bg-freshpac-cream px-1.5 py-0.5 text-[10px] font-black">
+                    <span className="rounded-lg bg-white px-1.5 py-0.5 text-[10px] font-black text-emerald-700">
                       {line.quantity}
                     </span>
                   </div>
@@ -232,7 +244,7 @@ export default async function AddManualOrderLinePage({
                   <div>
                     <CardTitle className="text-sm">Order pad</CardTitle>
                     <CardDescription className="text-[11px] leading-4">
-                      {products.length} product option{products.length === 1 ? "" : "s"}. Set wanted quantities, then save.
+                      {products.length} product option{products.length === 1 ? "" : "s"}. Active rows float to the top.
                     </CardDescription>
                   </div>
 
@@ -260,7 +272,7 @@ export default async function AddManualOrderLinePage({
                     </thead>
 
                     <tbody>
-                      {products.map((product: OrderPadProduct) => {
+                      {sortedProducts.map((product: OrderPadProduct) => {
                         const existingLine = existingLineByProductId.get((product as any).id);
 
                         return (
@@ -276,6 +288,15 @@ export default async function AddManualOrderLinePage({
 
                   {!products.length ? <EmptyProducts /> : null}
                 </div>
+
+                {products.length ? (
+                  <div className="sticky bottom-0 flex justify-end border-t border-freshpac-panel bg-white p-3">
+                    <Button type="submit" size="sm">
+                      <Save className="mr-1.5 size-3.5" />
+                      Save quantities
+                    </Button>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </form>
@@ -300,9 +321,10 @@ function OrderPadProductRow({
   const priceIncVatPence = calculatePriceIncVatPence(effectivePriceExVatPence, vatRateBasisPoints);
   const productId = String((product as any).id);
   const quantity = existingLine?.quantity ?? 0;
+  const isActive = quantity > 0;
 
   return (
-    <tr className="border-b border-freshpac-panel align-middle hover:bg-orange-50">
+    <tr className={`border-b border-freshpac-panel align-middle hover:bg-orange-50 ${isActive ? "bg-emerald-50" : ""}`}>
       <CompactTd>
         <input type="hidden" name="productId" value={productId} />
         <p className="font-black text-freshpac-charcoal">{(product as any).code}</p>
@@ -353,7 +375,7 @@ function OrderPadProductRow({
           min={0}
           defaultValue={quantity}
           aria-label="Quantity"
-          className="h-7 w-14 rounded-lg px-1.5 text-[11px]"
+          className={`h-7 w-14 rounded-lg px-1.5 text-[11px] ${isActive ? "border-emerald-300 bg-white" : ""}`}
         />
       </CompactTd>
 
