@@ -101,75 +101,98 @@ const printStyles = `
     }
 
     .print-compact-header {
-      padding-bottom: 2.5mm !important;
-      margin-bottom: 2.5mm !important;
+      padding-bottom: 2mm !important;
+      margin-bottom: 2mm !important;
     }
 
     .print-title {
-      font-size: 18px !important;
-      line-height: 1.1 !important;
-      margin-top: 2mm !important;
+      font-size: 17px !important;
+      line-height: 1.05 !important;
+      margin-top: 1.5mm !important;
     }
 
     .print-company-text {
-      font-size: 8px !important;
-      line-height: 1.25 !important;
+      font-size: 7.8px !important;
+      line-height: 1.2 !important;
     }
 
-    .delivery-required-banner {
-      padding: 2mm !important;
+    .print-warning-stack {
+      display: grid !important;
+      gap: 1.4mm !important;
       margin-top: 2mm !important;
-      border-width: 1.5px !important;
-      font-size: 9px !important;
-      line-height: 1.18 !important;
     }
 
-    .delivery-required-banner-title {
-      font-size: 12px !important;
+    .delivery-required-banner,
+    .portal-order-banner {
+      padding: 1.6mm 2mm !important;
+      margin-top: 0 !important;
+      border-width: 1.4px !important;
+      font-size: 8px !important;
+      line-height: 1.15 !important;
+      border-radius: 4px !important;
+    }
+
+    .delivery-required-banner-title,
+    .portal-order-banner-title {
+      font-size: 10px !important;
       line-height: 1.05 !important;
-      letter-spacing: 0.08em !important;
+      letter-spacing: 0.07em !important;
+    }
+
+    .portal-order-banner-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr 1fr !important;
+      gap: 1.5mm !important;
+      margin-top: 1.2mm !important;
+    }
+
+    .portal-order-banner-box {
+      padding: 1mm !important;
+      border-radius: 3px !important;
+      font-size: 7.4px !important;
+      line-height: 1.12 !important;
     }
 
     .print-info-grid {
       display: grid !important;
       grid-template-columns: 1fr 1fr 1fr !important;
       gap: 2mm !important;
-      margin-top: 2.5mm !important;
+      margin-top: 2mm !important;
     }
 
     .print-info-card {
-      padding: 2mm !important;
+      padding: 1.8mm !important;
       border-radius: 4px !important;
     }
 
     .print-info-card h2 {
-      font-size: 8px !important;
-      line-height: 1.2 !important;
-      margin-bottom: 1.2mm !important;
+      font-size: 7.8px !important;
+      line-height: 1.15 !important;
+      margin-bottom: 1mm !important;
     }
 
     .print-info-row {
       display: grid !important;
-      grid-template-columns: 22mm 1fr !important;
-      gap: 1.5mm !important;
-      font-size: 8px !important;
-      line-height: 1.18 !important;
-      margin-top: 0.7mm !important;
+      grid-template-columns: 21mm 1fr !important;
+      gap: 1.3mm !important;
+      font-size: 7.6px !important;
+      line-height: 1.13 !important;
+      margin-top: 0.6mm !important;
     }
 
     .print-address-text {
-      font-size: 8px !important;
-      line-height: 1.18 !important;
+      font-size: 7.6px !important;
+      line-height: 1.13 !important;
     }
 
     .print-lines-section {
-      margin-top: 2.5mm !important;
+      margin-top: 2.2mm !important;
     }
 
     .print-lines-title {
-      font-size: 11px !important;
-      line-height: 1.2 !important;
-      margin-bottom: 1.2mm !important;
+      font-size: 10.5px !important;
+      line-height: 1.15 !important;
+      margin-bottom: 1mm !important;
     }
 
     .print-table {
@@ -179,78 +202,78 @@ const printStyles = `
     }
 
     .print-table th {
-      padding: 1.2mm 1mm !important;
-      font-size: 7.3px !important;
-      line-height: 1.05 !important;
+      padding: 1.1mm 0.9mm !important;
+      font-size: 7px !important;
+      line-height: 1.04 !important;
       vertical-align: middle !important;
     }
 
     .print-table td {
-      padding: 1mm 1mm !important;
-      font-size: 7.8px !important;
-      line-height: 1.08 !important;
+      padding: 0.95mm 0.9mm !important;
+      font-size: 7.5px !important;
+      line-height: 1.05 !important;
       vertical-align: middle !important;
     }
 
     .print-table tbody tr {
-      height: 5.4mm !important;
-      max-height: 5.4mm !important;
+      height: 5.1mm !important;
+      max-height: 5.1mm !important;
     }
 
     .print-line-description {
       display: block !important;
-      max-height: 8.5px !important;
+      max-height: 8.2px !important;
       overflow: hidden !important;
       white-space: nowrap !important;
       text-overflow: ellipsis !important;
     }
 
     .print-after-lines {
-      margin-top: 2.5mm !important;
+      margin-top: 2.2mm !important;
       display: grid !important;
       grid-template-columns: 1fr 52mm !important;
-      gap: 2.5mm !important;
+      gap: 2.2mm !important;
     }
 
     .print-notes-box,
     .print-totals-box {
-      padding: 2mm !important;
+      padding: 1.8mm !important;
       border-radius: 4px !important;
     }
 
     .print-notes-box h2,
     .print-totals-box h2 {
-      font-size: 8px !important;
-      line-height: 1.2 !important;
+      font-size: 7.8px !important;
+      line-height: 1.15 !important;
     }
 
     .print-notes-text {
-      min-height: 12mm !important;
-      font-size: 8px !important;
-      line-height: 1.25 !important;
-      margin-top: 1.5mm !important;
+      min-height: 10mm !important;
+      font-size: 7.8px !important;
+      line-height: 1.2 !important;
+      margin-top: 1.2mm !important;
     }
 
     .print-total-row {
-      font-size: 8.3px !important;
-      line-height: 1.18 !important;
-      margin-top: 0.8mm !important;
+      font-size: 8px !important;
+      line-height: 1.15 !important;
+      margin-top: 0.7mm !important;
     }
 
     .print-total-row-strong {
-      font-size: 10.5px !important;
-      line-height: 1.15 !important;
+      font-size: 10px !important;
+      line-height: 1.12 !important;
     }
 
     .print-footer {
       display: block !important;
       position: static !important;
-      margin-top: 2.5mm !important;
+      margin-top: 2mm !important;
       margin-bottom: 0 !important;
-      padding-top: 1.5mm !important;
+      padding-top: 1.2mm !important;
       padding-bottom: 0 !important;
-      font-size: 6.6px !important;
-      line-height: 1.15 !important;
+      font-size: 6.4px !important;
+      line-height: 1.1 !important;
       break-after: auto !important;
       page-break-after: auto !important;
     }
@@ -298,6 +321,7 @@ export default async function BatchOrderPrintPage({
   ]);
 
   const backHref = buildOrdersBackHref({ q, status, source });
+  const customerPortalCount = orders.filter((order) => order.source === "CUSTOMER_PORTAL").length;
 
   return (
     <main className="min-h-screen bg-freshpac-cream px-4 py-5 text-freshpac-charcoal print:bg-white print:px-0 print:py-0">
@@ -316,6 +340,11 @@ export default async function BatchOrderPrintPage({
                   ? ` ${processableCount} can be marked as processed after successful printing.`
                   : " No orders in this batch can currently be marked as processed."}
               </p>
+              {customerPortalCount ? (
+                <p className="mt-1 text-sm font-bold text-blue-800">
+                  {customerPortalCount} customer portal order{customerPortalCount === 1 ? "" : "s"} included. Their printed sheets will show Sage processing reminders.
+                </p>
+              ) : null}
             </div>
 
             <form action={confirmFilteredOrdersPrinted}>
@@ -358,6 +387,9 @@ function OrderSheet({ order }: { order: PrintableOrder }) {
   const priceVisible = order.priceVisibilityAtOrder;
   const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
   const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
+  const isCustomerPortalOrder = order.source === "CUSTOMER_PORTAL";
+  const needsDeliveryNote = !priceVisible;
+  const needsSageProcessing = order.status !== "PROCESSED" && order.status !== "CANCELLED";
 
   return (
     <section className="batch-print-page">
@@ -372,16 +404,44 @@ function OrderSheet({ order }: { order: PrintableOrder }) {
                 Customer Sales Order
               </h1>
 
-              {!priceVisible ? (
-                <div className="delivery-required-banner mt-3 rounded-xl border-2 border-red-700 bg-red-50 p-3 text-sm font-black text-red-900">
-                  <p className="delivery-required-banner-title uppercase">
-                    Delivery Note Required
-                  </p>
-                  <p className="mt-1">
-                    Do not send this priced order sheet to the customer. Print the price-free Delivery Note for delivery/customer paperwork.
-                  </p>
-                </div>
-              ) : null}
+              <div className="print-warning-stack">
+                {isCustomerPortalOrder ? (
+                  <div className="portal-order-banner rounded-xl border-2 border-blue-700 bg-blue-50 p-3 text-sm font-black text-blue-950">
+                    <p className="portal-order-banner-title uppercase">
+                      Customer Portal Order - Process In Sage
+                    </p>
+                    <p className="mt-1">
+                      This order was submitted online by the customer. Check PO reference, notes and delivery note requirement before processing.
+                    </p>
+
+                    <div className="portal-order-banner-grid mt-2 grid gap-2 sm:grid-cols-3">
+                      <PortalPrintBox
+                        label="PO reference"
+                        value={order.customerPoNumber || "Not supplied"}
+                      />
+                      <PortalPrintBox
+                        label="Submitted by"
+                        value={order.placedByUser?.fullName || "Customer portal user"}
+                      />
+                      <PortalPrintBox
+                        label="Sage action"
+                        value={needsSageProcessing ? "Processing required" : "Already processed"}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                {needsDeliveryNote ? (
+                  <div className="delivery-required-banner rounded-xl border-2 border-red-700 bg-red-50 p-3 text-sm font-black text-red-900">
+                    <p className="delivery-required-banner-title uppercase">
+                      Delivery Note Required
+                    </p>
+                    <p className="mt-1">
+                      Do not send this priced order sheet to the customer. Print the price-free Delivery Note for delivery/customer paperwork.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="print-company-text text-right text-xs leading-5 text-freshpac-charcoal">
@@ -521,7 +581,14 @@ function OrderSheet({ order }: { order: PrintableOrder }) {
             <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
               Order notes
             </h2>
-            <p className="print-notes-text mt-3 min-h-20 text-sm leading-6 text-freshpac-charcoal">
+
+            {isCustomerPortalOrder ? (
+              <p className="mt-2 rounded-xl border border-blue-200 bg-blue-50 p-2 text-xs font-black text-blue-950">
+                Customer portal note area. Check this before entering the order into Sage.
+              </p>
+            ) : null}
+
+            <p className="print-notes-text mt-3 min-h-20 whitespace-pre-wrap text-sm leading-6 text-freshpac-charcoal">
               {order.customerNotes || "No customer notes recorded."}
             </p>
 
@@ -539,6 +606,15 @@ function OrderSheet({ order }: { order: PrintableOrder }) {
             <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
               Totals / paperwork
             </h2>
+
+            {isCustomerPortalOrder ? (
+              <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs font-black text-blue-950">
+                Customer Portal Order
+                <p className="mt-1 font-bold">
+                  Process in Sage before marking processed.
+                </p>
+              </div>
+            ) : null}
 
             {priceVisible ? (
               <div className="mt-3 space-y-2 text-sm">
@@ -604,7 +680,7 @@ function InfoCard({ title, rows }: { title: string; rows: Array<[string, string]
   );
 }
 
-function AddressMiniBlock({ title, lines }: { title: string; lines: string[] }) {
+function AddressMiniBlock({ title, lines }: { title: string[] | string; lines: string[] }) {
   return (
     <div>
       <p className="text-xs font-black uppercase tracking-[0.12em] text-freshpac-grey">{title}</p>
@@ -613,6 +689,19 @@ function AddressMiniBlock({ title, lines }: { title: string; lines: string[] }) 
           <p key={line}>{line}</p>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PortalPrintBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="portal-order-banner-box rounded-lg border border-blue-200 bg-white p-2">
+      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-blue-900">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-xs font-black text-freshpac-charcoal">
+        {value}
+      </p>
     </div>
   );
 }

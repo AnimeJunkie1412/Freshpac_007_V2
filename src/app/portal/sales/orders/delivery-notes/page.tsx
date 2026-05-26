@@ -82,60 +82,96 @@ const printStyles = `
     }
 
     .delivery-header {
-      padding-bottom: 3mm !important;
-      margin-bottom: 3mm !important;
+      padding-bottom: 2.5mm !important;
+      margin-bottom: 2.5mm !important;
     }
 
     .delivery-title {
-      font-size: 21px !important;
-      line-height: 1.1 !important;
+      font-size: 20px !important;
+      line-height: 1.05 !important;
     }
 
     .delivery-meta {
+      font-size: 7.8px !important;
+      line-height: 1.22 !important;
+    }
+
+    .delivery-banner-stack {
+      display: grid !important;
+      gap: 1.5mm !important;
+      margin-top: 2mm !important;
+    }
+
+    .delivery-portal-banner,
+    .delivery-no-price-banner {
+      padding: 1.7mm 2mm !important;
+      border-radius: 4px !important;
+      border-width: 1.4px !important;
       font-size: 8px !important;
-      line-height: 1.3 !important;
+      line-height: 1.15 !important;
+    }
+
+    .delivery-portal-banner-title,
+    .delivery-no-price-banner-title {
+      font-size: 10px !important;
+      line-height: 1.05 !important;
+      letter-spacing: 0.07em !important;
+    }
+
+    .delivery-portal-grid {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr 1fr !important;
+      gap: 1.5mm !important;
+      margin-top: 1.2mm !important;
+    }
+
+    .delivery-portal-box {
+      padding: 1mm !important;
+      border-radius: 3px !important;
+      font-size: 7.4px !important;
+      line-height: 1.12 !important;
     }
 
     .delivery-info-grid {
       display: grid !important;
       grid-template-columns: 1fr 1fr 1fr !important;
       gap: 2mm !important;
-      margin-top: 3mm !important;
+      margin-top: 2.5mm !important;
     }
 
     .delivery-info-card {
-      padding: 2mm !important;
+      padding: 1.8mm !important;
       border-radius: 4px !important;
     }
 
     .delivery-info-card h2 {
-      font-size: 8px !important;
-      line-height: 1.2 !important;
-      margin-bottom: 1.2mm !important;
+      font-size: 7.8px !important;
+      line-height: 1.15 !important;
+      margin-bottom: 1mm !important;
     }
 
     .delivery-info-row {
       display: grid !important;
-      grid-template-columns: 22mm 1fr !important;
-      gap: 1.5mm !important;
-      font-size: 8px !important;
-      line-height: 1.18 !important;
-      margin-top: 0.7mm !important;
+      grid-template-columns: 21mm 1fr !important;
+      gap: 1.3mm !important;
+      font-size: 7.6px !important;
+      line-height: 1.13 !important;
+      margin-top: 0.6mm !important;
     }
 
     .delivery-address-text {
-      font-size: 8px !important;
-      line-height: 1.18 !important;
+      font-size: 7.6px !important;
+      line-height: 1.13 !important;
     }
 
     .delivery-table-section {
-      margin-top: 3mm !important;
+      margin-top: 2.5mm !important;
     }
 
     .delivery-table-title {
-      font-size: 11px !important;
-      line-height: 1.2 !important;
-      margin-bottom: 1.5mm !important;
+      font-size: 10.5px !important;
+      line-height: 1.15 !important;
+      margin-bottom: 1.2mm !important;
     }
 
     .delivery-table {
@@ -145,27 +181,27 @@ const printStyles = `
     }
 
     .delivery-table th {
-      padding: 1.5mm 1.2mm !important;
-      font-size: 7.5px !important;
-      line-height: 1.1 !important;
+      padding: 1.2mm 1mm !important;
+      font-size: 7.2px !important;
+      line-height: 1.05 !important;
       vertical-align: middle !important;
     }
 
     .delivery-table td {
-      padding: 1.25mm 1.2mm !important;
-      font-size: 8px !important;
-      line-height: 1.12 !important;
+      padding: 1mm 1mm !important;
+      font-size: 7.7px !important;
+      line-height: 1.08 !important;
       vertical-align: middle !important;
     }
 
     .delivery-table tbody tr {
-      height: 5.8mm !important;
-      max-height: 5.8mm !important;
+      height: 5.4mm !important;
+      max-height: 5.4mm !important;
     }
 
     .delivery-description {
       display: block !important;
-      max-height: 9px !important;
+      max-height: 8.5px !important;
       overflow: hidden !important;
       white-space: nowrap !important;
       text-overflow: ellipsis !important;
@@ -174,42 +210,42 @@ const printStyles = `
     .delivery-notes-grid {
       display: grid !important;
       grid-template-columns: 1fr 62mm !important;
-      gap: 3mm !important;
-      margin-top: 3mm !important;
+      gap: 2.5mm !important;
+      margin-top: 2.5mm !important;
       break-inside: avoid;
       page-break-inside: avoid;
     }
 
     .delivery-notes-box,
     .delivery-signature-box {
-      padding: 2.5mm !important;
+      padding: 2mm !important;
       border-radius: 4px !important;
     }
 
     .delivery-notes-box h2,
     .delivery-signature-box h2 {
-      font-size: 8px !important;
-      line-height: 1.2 !important;
+      font-size: 7.8px !important;
+      line-height: 1.15 !important;
     }
 
     .delivery-notes-text {
-      min-height: 18mm !important;
-      font-size: 8px !important;
-      line-height: 1.3 !important;
-      margin-top: 1.5mm !important;
+      min-height: 15mm !important;
+      font-size: 7.8px !important;
+      line-height: 1.22 !important;
+      margin-top: 1.2mm !important;
     }
 
     .signature-line {
-      margin-top: 11mm !important;
-      padding-top: 2mm !important;
-      font-size: 8px !important;
+      margin-top: 10mm !important;
+      padding-top: 1.8mm !important;
+      font-size: 7.8px !important;
     }
 
     .delivery-footer {
-      margin-top: 4mm !important;
-      padding-top: 2mm !important;
-      font-size: 6.8px !important;
-      line-height: 1.2 !important;
+      margin-top: 3mm !important;
+      padding-top: 1.5mm !important;
+      font-size: 6.5px !important;
+      line-height: 1.15 !important;
     }
   }
 
@@ -244,6 +280,7 @@ export default async function BatchDeliveryNotesPrintPage({
   });
 
   const backHref = buildOrdersBackHref({ q, status, source });
+  const customerPortalCount = orders.filter((order) => order.source === "CUSTOMER_PORTAL").length;
 
   return (
     <main className="min-h-screen bg-freshpac-cream px-4 py-5 text-freshpac-charcoal print:bg-white print:px-0 print:py-0">
@@ -259,6 +296,11 @@ export default async function BatchDeliveryNotesPrintPage({
           <p className="mt-1 text-sm text-freshpac-grey">
             Printing {orders.length} price-free delivery note{orders.length === 1 ? "" : "s"} from the current filtered order list.
           </p>
+          {customerPortalCount ? (
+            <p className="mt-1 text-sm font-bold text-blue-800">
+              {customerPortalCount} customer portal order{customerPortalCount === 1 ? "" : "s"} included. Delivery notes will show PO and customer-note reminders.
+            </p>
+          ) : null}
         </div>
 
         {orders.map((order) => (
@@ -287,6 +329,7 @@ function DeliveryNoteSheet({ order }: { order: PrintableOrder }) {
   const orderReference = getOrderReference(order);
   const deliveryAddress = getAddressLines(order.customer.addresses, "DELIVERY");
   const invoiceAddress = getAddressLines(order.customer.addresses, "INVOICE");
+  const isCustomerPortalOrder = order.source === "CUSTOMER_PORTAL";
 
   return (
     <section className="delivery-print-page">
@@ -300,9 +343,43 @@ function DeliveryNoteSheet({ order }: { order: PrintableOrder }) {
               <h1 className="delivery-title mt-2 text-3xl font-black tracking-tight text-freshpac-charcoal">
                 Delivery Note
               </h1>
-              <p className="delivery-meta mt-2 text-sm font-semibold text-freshpac-grey">
-                No customer prices shown on this document.
-              </p>
+
+              <div className="delivery-banner-stack">
+                <div className="delivery-no-price-banner rounded-xl border-2 border-freshpac-charcoal bg-freshpac-cream p-3 text-sm font-black text-freshpac-charcoal">
+                  <p className="delivery-no-price-banner-title uppercase">
+                    No Prices Shown
+                  </p>
+                  <p className="mt-1">
+                    This document is safe for delivery/customer paperwork and does not show customer pricing.
+                  </p>
+                </div>
+
+                {isCustomerPortalOrder ? (
+                  <div className="delivery-portal-banner rounded-xl border-2 border-blue-700 bg-blue-50 p-3 text-sm font-black text-blue-950">
+                    <p className="delivery-portal-banner-title uppercase">
+                      Customer Portal Order
+                    </p>
+                    <p className="mt-1">
+                      This order was submitted online by the customer. Check PO reference and delivery notes before dispatch.
+                    </p>
+
+                    <div className="delivery-portal-grid mt-2 grid gap-2 sm:grid-cols-3">
+                      <PortalDeliveryBox
+                        label="PO reference"
+                        value={order.customerPoNumber || "Not supplied"}
+                      />
+                      <PortalDeliveryBox
+                        label="Submitted by"
+                        value={order.placedByUser?.fullName || "Customer portal user"}
+                      />
+                      <PortalDeliveryBox
+                        label="Pricing"
+                        value="No prices shown"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="delivery-meta text-right text-xs leading-5 text-freshpac-charcoal">
@@ -403,13 +480,32 @@ function DeliveryNoteSheet({ order }: { order: PrintableOrder }) {
         </section>
 
         <section className="delivery-notes-grid mt-5 grid gap-4 sm:grid-cols-[1fr_320px]">
-          <div className="delivery-notes-box rounded-2xl border border-freshpac-panel p-4">
+          <div
+            className={`delivery-notes-box rounded-2xl border p-4 ${
+              isCustomerPortalOrder
+                ? "border-blue-200 bg-blue-50"
+                : "border-freshpac-panel bg-white"
+            }`}
+          >
             <h2 className="text-sm font-black uppercase tracking-[0.14em] text-freshpac-grey">
               Delivery notes
             </h2>
-            <p className="delivery-notes-text mt-3 min-h-20 text-sm leading-6 text-freshpac-charcoal">
+
+            {isCustomerPortalOrder ? (
+              <p className="mt-2 rounded-xl border border-blue-200 bg-white p-2 text-xs font-black text-blue-950">
+                Customer portal note area. Check this before dispatch.
+              </p>
+            ) : null}
+
+            <p className="delivery-notes-text mt-3 min-h-20 whitespace-pre-wrap text-sm leading-6 text-freshpac-charcoal">
               {order.customerNotes || "No customer delivery notes recorded."}
             </p>
+
+            {order.customerPoNumber ? (
+              <p className="mt-3 rounded-xl border border-blue-200 bg-white p-2 text-xs font-black text-blue-950">
+                PO reference: {order.customerPoNumber}
+              </p>
+            ) : null}
           </div>
 
           <div className="delivery-signature-box rounded-2xl border border-freshpac-panel p-4">
@@ -480,6 +576,19 @@ function AddressMiniBlock({ title, lines }: { title: string; lines: string[] }) 
           <p key={line}>{line}</p>
         ))}
       </div>
+    </div>
+  );
+}
+
+function PortalDeliveryBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="delivery-portal-box rounded-lg border border-blue-200 bg-white p-2">
+      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-blue-900">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-xs font-black text-freshpac-charcoal">
+        {value}
+      </p>
     </div>
   );
 }
