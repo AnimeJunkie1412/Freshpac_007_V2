@@ -10,6 +10,9 @@ import {
 
 export async function saveCustomerBasket(formData: FormData) {
   const reference = readRequiredFormValue(formData, "reference");
+  const customerPoNumber = String(formData.get("customerPoNumber") || "").trim();
+  const customerNotes = String(formData.get("customerNotes") || "").trim();
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user }
@@ -33,6 +36,8 @@ export async function saveCustomerBasket(formData: FormData) {
     authUserId: user.id,
     email: user.email,
     reference,
+    customerPoNumber,
+    customerNotes,
     rows
   });
 
@@ -42,6 +47,9 @@ export async function saveCustomerBasket(formData: FormData) {
 
 export async function submitCustomerBasket(formData: FormData) {
   const reference = readRequiredFormValue(formData, "reference");
+  const customerPoNumber = String(formData.get("customerPoNumber") || "").trim();
+  const customerNotes = String(formData.get("customerNotes") || "").trim();
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user }
@@ -51,6 +59,15 @@ export async function submitCustomerBasket(formData: FormData) {
     redirect("/login?redirectTo=/trade-account");
   }
 
+  await saveCustomerBasketFromDb({
+    authUserId: user.id,
+    email: user.email,
+    reference,
+    customerPoNumber,
+    customerNotes,
+    rows: readQuantityRows(formData)
+  });
+
   await submitCustomerBasketFromDb({
     authUserId: user.id,
     email: user.email,
@@ -59,6 +76,18 @@ export async function submitCustomerBasket(formData: FormData) {
 
   revalidateCustomerOrderPaths(reference);
   redirect("/trade-account?submitted=1");
+}
+
+function readQuantityRows(formData: FormData) {
+  const productIds = formData
+    .getAll("productId")
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  return productIds.map((productId) => ({
+    productId,
+    quantity: Number(formData.get(`quantity_${productId}`) || 0)
+  }));
 }
 
 function revalidateCustomerOrderPaths(reference: string) {

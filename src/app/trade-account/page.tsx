@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClipboardList, LogOut, PackageSearch, ShoppingBasket, UserRound } from "lucide-react";
+import { ClipboardList, LogOut, PackageSearch, Repeat2, ShoppingBasket, UserRound } from "lucide-react";
 import { logout } from "@/app/login/actions";
-import { startCustomerOrder } from "@/app/trade-account/actions";
+import { reorderCustomerOrder, startCustomerOrder } from "@/app/trade-account/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,14 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function TradeAccountPage() {
+export default async function TradeAccountPage({
+  searchParams
+}: {
+  searchParams?: {
+    submitted?: string;
+    error?: string;
+  };
+}) {
   const supabase = createSupabaseServerClient();
   const {
     data: { user }
@@ -80,6 +87,28 @@ export default async function TradeAccountPage() {
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-3 px-3 py-3 sm:px-4">
+        {searchParams?.submitted ? (
+          <Card className="portal-card-safe border-emerald-200 bg-emerald-50">
+            <CardContent className="p-4">
+              <p className="font-black text-emerald-900">Order submitted successfully</p>
+              <p className="mt-1 text-sm font-semibold text-emerald-800">
+                Freshpac has received your order. It now appears in your recent orders and in Freshpac’s staff order queue.
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {searchParams?.error === "reorder" || searchParams?.error === "order" ? (
+          <Card className="portal-card-safe border-red-200 bg-red-50">
+            <CardContent className="p-4">
+              <p className="font-black text-red-900">Something went wrong</p>
+              <p className="mt-1 text-sm font-semibold text-red-800">
+                We could not create that basket. Please try again or contact Freshpac.
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <Card className="portal-card-safe">
           <CardContent className="p-4">
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -140,7 +169,7 @@ export default async function TradeAccountPage() {
                 <div>
                   <CardTitle>Recent orders</CardTitle>
                   <CardDescription>
-                    Your latest submitted and processed orders.
+                    Open a submitted order to review what was sent, or reorder it into a new basket.
                   </CardDescription>
                 </div>
 
@@ -179,27 +208,46 @@ export default async function TradeAccountPage() {
                         <th>Status</th>
                         <th>Lines</th>
                         <th>Total</th>
+                        <th>Action</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {recentOrders.map((order) => (
-                        <tr key={order.id}>
-                          <td className="font-black">
-                            {order.reference || order.temporaryReference || "Draft"}
-                          </td>
-                          <td>{formatCustomerPortalDate(order.createdAt)}</td>
-                          <td>
-                            <Badge tone={getCustomerOrderStatusTone(order.status)}>
-                              {formatCustomerOrderStatus(order.status)}
-                            </Badge>
-                          </td>
-                          <td>{order.lines.length}</td>
-                          <td className="font-black">
-                            {formatCustomerPortalMoney(order.totalIncVatPence, priceVisible)}
-                          </td>
-                        </tr>
-                      ))}
+                      {recentOrders.map((order) => {
+                        const reference = order.reference || order.temporaryReference || "Draft";
+
+                        return (
+                          <tr key={order.id}>
+                            <td className="font-black">
+                              <Link
+                                href={`/trade-account/order/${encodeURIComponent(reference)}`}
+                                className="text-freshpac-charcoal underline decoration-freshpac-orange/40 underline-offset-4 hover:text-freshpac-orange"
+                              >
+                                {reference}
+                              </Link>
+                            </td>
+                            <td>{formatCustomerPortalDate(order.createdAt)}</td>
+                            <td>
+                              <Badge tone={getCustomerOrderStatusTone(order.status)}>
+                                {formatCustomerOrderStatus(order.status)}
+                              </Badge>
+                            </td>
+                            <td>{order.lines.length}</td>
+                            <td className="font-black">
+                              {formatCustomerPortalMoney(order.totalIncVatPence, priceVisible)}
+                            </td>
+                            <td>
+                              <form action={reorderCustomerOrder}>
+                                <input type="hidden" name="sourceReference" value={reference} />
+                                <Button type="submit" size="sm" variant="secondary">
+                                  <Repeat2 className="mr-1.5 size-3.5" />
+                                  Reorder
+                                </Button>
+                              </form>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
 
@@ -322,25 +370,38 @@ function OrderCard({
 }) {
   return (
     <div className="rounded-xl border border-freshpac-panel bg-white p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-orange">
-            {reference}
-          </p>
-          <p className="mt-1 text-xs font-semibold text-freshpac-grey">
-            {formatCustomerPortalDate(date)}
-          </p>
+      <Link
+        href={`/trade-account/order/${encodeURIComponent(reference)}`}
+        className="block transition hover:text-freshpac-orange"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-freshpac-orange">
+              {reference}
+            </p>
+            <p className="mt-1 text-xs font-semibold text-freshpac-grey">
+              {formatCustomerPortalDate(date)}
+            </p>
+          </div>
+
+          <Badge tone={getCustomerOrderStatusTone(status)}>
+            {formatCustomerOrderStatus(status)}
+          </Badge>
         </div>
 
-        <Badge tone={getCustomerOrderStatusTone(status)}>
-          {formatCustomerOrderStatus(status)}
-        </Badge>
-      </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <InfoBox label="Lines" value={String(lines)} />
+          <InfoBox label="Total" value={total} />
+        </div>
+      </Link>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <InfoBox label="Lines" value={String(lines)} />
-        <InfoBox label="Total" value={total} />
-      </div>
+      <form action={reorderCustomerOrder} className="mt-2">
+        <input type="hidden" name="sourceReference" value={reference} />
+        <Button type="submit" size="sm" variant="secondary" className="w-full">
+          <Repeat2 className="mr-1.5 size-3.5" />
+          Reorder
+        </Button>
+      </form>
     </div>
   );
 }

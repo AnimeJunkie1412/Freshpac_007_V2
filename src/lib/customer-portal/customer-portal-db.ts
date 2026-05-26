@@ -17,6 +17,7 @@ type CustomerPortalOrderWithRelations = {
   placedByUserId: string | null;
   orderedByFreshpac: boolean;
   editedByFreshpac: boolean;
+  customerPoNumber: string | null;
   customerNotes: string | null;
   internalNotes: string | null;
   totalExVatPence: number;
@@ -184,15 +185,136 @@ export async function getOrCreateCustomerDraftOrderFromDb({
   });
 }
 
+export async function createCustomerReorderDraftFromDb({
+  authUserId,
+  email,
+  sourceReference
+}: {
+  authUserId: string;
+  email?: string | null;
+  sourceReference: string;
+}) {
+  const profile = await getCustomerPortalProfileFromDb(authUserId, email);
+  assertCustomerProfile(profile);
+
+  const sourceOrder = await prisma.order.findFirst({
+    where: {
+      customerId: profile.customerAccountId!,
+      OR: [
+        {
+          reference: sourceReference
+        },
+        {
+          temporaryReference: sourceReference
+        }
+      ],
+      status: {
+        not: OrderStatus.DRAFT_BASKET
+      }
+    },
+    include: {
+      lines: true
+    }
+  });
+
+  if (!sourceOrder) {
+    throw new Error("Source order was not found.");
+  }
+
+  const draftOrder = await prisma.order.create({
+    data: {
+      temporaryReference: generateCustomerDraftReference(),
+      customerId: profile.customerAccountId!,
+      status: OrderStatus.DRAFT_BASKET,
+      source: OrderSource.CUSTOMER_PORTAL,
+      deliveryDay: profile.customerAccount!.deliveryDay,
+      deliveryMethod: profile.customerAccount!.deliveryMethod,
+      driverOrCourier: profile.customerAccount!.driverOrCourier,
+      priceVisibilityAtOrder: profile.customerAccount!.priceVisibility,
+      placedByUserId: profile.id,
+      orderedByFreshpac: false,
+      editedByFreshpac: false,
+      customerPoNumber: null,
+      customerNotes: sourceOrder.customerNotes
+        ? `Reordered from ${sourceOrder.reference || sourceOrder.temporaryReference}. Previous notes: ${sourceOrder.customerNotes}`
+        : `Reordered from ${sourceOrder.reference || sourceOrder.temporaryReference}.`
+    }
+  });
+
+  for (const line of sourceOrder.lines) {
+    if (!line.productId || line.quantity <= 0) {
+      continue;
+    }
+
+    const product = await prisma.product.findFirst({
+      where: {
+        id: line.productId,
+        customerAccess: {
+          some: {
+            customerId: profile.customerAccountId!
+          }
+        }
+      },
+      include: {
+        customerPrices: {
+          where: {
+            customerId: profile.customerAccountId!
+          },
+          take: 1
+        }
+      }
+    } as any);
+
+    if (!product) {
+      continue;
+    }
+
+    const priceExVatPence = getCustomerPortalProductPriceExVatPence(product);
+    const vatRateBasisPoints = Number((product as any).vatRateBasisPoints || 0);
+    const vatPence = calculateCustomerVatAmountPence(priceExVatPence, vatRateBasisPoints);
+    const priceIncVatPence = priceExVatPence + vatPence;
+    const lineTotalPence = priceIncVatPence * line.quantity;
+
+    await prisma.orderLine.create({
+      data: {
+        orderId: draftOrder.id,
+        productId: product.id,
+        quantity: line.quantity,
+        productCodeSnapshot: (product as any).code || line.productCodeSnapshot,
+        descriptionSnapshot: getCustomerPortalProductDescription(product),
+        packSizeSnapshot: (product as any).packSize || line.packSizeSnapshot || null,
+        priceExVatPence,
+        vatPence,
+        priceIncVatPence,
+        lineTotalPence,
+        source: "CUSTOMER_ADDED",
+        lockedFromCustomer: false
+      } as any
+    });
+  }
+
+  await recalculateCustomerOrderTotals(draftOrder.id);
+
+  return prisma.order.findUniqueOrThrow({
+    where: {
+      id: draftOrder.id
+    }
+  });
+}
+
 export async function saveCustomerBasketFromDb({
   authUserId,
   email,
   reference,
+  customerPoNumber,
+  customerNotes,
   rows
 }: {
   authUserId: string;
   email?: string | null;
   reference: string;
+  customerPoNumber?: string | null;
+  customerNotes?: string | null;
   rows: Array<{
     productId: string;
     quantity: number;
@@ -207,6 +329,16 @@ export async function saveCustomerBasketFromDb({
   if (order.status !== "DRAFT_BASKET") {
     throw new Error("Only draft baskets can be edited.");
   }
+
+  await prisma.order.update({
+    where: {
+      id: order.id
+    },
+    data: {
+      customerPoNumber: cleanNullableText(customerPoNumber),
+      customerNotes: cleanNullableText(customerNotes)
+    }
+  });
 
   const cleanRows = rows
     .map((row) => ({
@@ -356,7 +488,8 @@ export async function submitCustomerBasketFromDb({
     data: {
       status: nextStatus,
       submittedAt: new Date(),
-      customerNotes: order.customerNotes || null
+      customerPoNumber: cleanNullableText(order.customerPoNumber),
+      customerNotes: cleanNullableText(order.customerNotes)
     }
   });
 }
@@ -497,6 +630,12 @@ function assertCustomerProfile(profile: CustomerPortalProfile | null): asserts p
   if (!profile.customerAccountId || !profile.customerAccount) {
     throw new Error("This customer login is not linked to a customer account.");
   }
+}
+
+function cleanNullableText(value?: string | null) {
+  const text = String(value || "").trim();
+
+  return text ? text : null;
 }
 
 function generateCustomerDraftReference() {
