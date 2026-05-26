@@ -1,14 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
+  AlertTriangle,
   ArrowLeft,
   Banknote,
+  MessageSquareText,
   PackagePlus,
   PencilLine,
   Printer,
   RotateCcw,
   Send,
   ShoppingBasket,
+  Sparkles,
   Truck,
   XCircle
 } from "lucide-react";
@@ -73,6 +76,11 @@ export default async function OrderDetailPage({
   const auditEvents = buildOrderAuditPreview(order);
   const isDraft = order.status === "DRAFT_BASKET";
   const canSubmitDraft = isDraft && order.lines.length > 0;
+  const isCustomerPortalOrder = order.source === "CUSTOMER_PORTAL";
+  const needsSageProcessing =
+    isCustomerPortalOrder &&
+    order.status !== "PROCESSED" &&
+    order.status !== "CANCELLED";
 
   return (
     <PortalShell
@@ -187,6 +195,61 @@ export default async function OrderDetailPage({
         </div>
       ) : null}
 
+      {isCustomerPortalOrder ? (
+        <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Sparkles className="size-4" />
+                <p className="font-black">Customer portal order</p>
+                {needsSageProcessing ? <Badge tone="warning">Needs Sage processing</Badge> : null}
+                <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
+              </div>
+
+              <p className="mt-2 font-semibold text-blue-800">
+                This order was submitted by the customer portal. Check the PO reference and customer notes before processing in Sage.
+              </p>
+
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <PortalInfoBox
+                  label="Customer PO reference"
+                  value={order.customerPoNumber || "No PO reference supplied"}
+                  tone={order.customerPoNumber ? "normal" : "muted"}
+                />
+
+                <PortalInfoBox
+                  label="Submitted by"
+                  value={order.placedByUser?.fullName || "Customer portal user"}
+                  tone="normal"
+                />
+              </div>
+
+              <div className="mt-2 rounded-xl border border-blue-200 bg-white p-3">
+                <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-blue-900">
+                  <MessageSquareText className="size-3.5" />
+                  Customer notes
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-freshpac-charcoal">
+                  {order.customerNotes || "No customer notes supplied."}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:min-w-48">
+              <LinkButton href={printHref} size="sm">
+                <Printer className="mr-2 size-4" />
+                Print for Sage
+              </LinkButton>
+
+              <LinkButton href={deliveryNoteHref} variant="secondary" size="sm">
+                <Truck className="mr-2 size-4" />
+                Delivery note
+              </LinkButton>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <Card className="portal-card-safe mb-4">
         <CardContent>
           <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
@@ -194,6 +257,7 @@ export default async function OrderDetailPage({
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                 <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                {isCustomerPortalOrder ? <Badge tone="info">Customer Portal</Badge> : null}
                 <Badge tone={order.priceVisibilityAtOrder ? "success" : "warning"}>
                   Prices {order.priceVisibilityAtOrder ? "On" : "Off"}
                 </Badge>
@@ -278,6 +342,18 @@ export default async function OrderDetailPage({
             <DetailField label="Carriage" value={formatOrderMoney(order.carriageIncVatPence, priceVisible)} />
             <DetailField label="Processed at" value={order.processedAt ? formatDateTime(order.processedAt) : "Not processed"} />
           </div>
+
+          {isCustomerPortalOrder ? (
+            <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-center gap-2 text-blue-900">
+                <AlertTriangle className="size-4" />
+                <p className="font-black">Portal order processing reminder</p>
+              </div>
+              <p className="mt-2 text-sm font-semibold text-blue-800">
+                Process this in Sage, print the required paperwork, then mark the order as processed once complete.
+              </p>
+            </div>
+          ) : null}
         </ModuleSection>
 
         <ModuleSection
@@ -388,9 +464,26 @@ export default async function OrderDetailPage({
 
         <ModuleSection id="notes" title="Notes" description="Customer notes and Freshpac internal handling notes.">
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <div className="rounded-2xl border border-freshpac-panel bg-white p-4">
-              <p className="font-black text-freshpac-charcoal">Customer notes</p>
-              <p className="mt-2 text-sm text-freshpac-charcoal">{order.customerNotes || "No customer notes."}</p>
+            <div
+              className={`rounded-2xl border p-4 ${
+                isCustomerPortalOrder
+                  ? "border-blue-200 bg-blue-50"
+                  : "border-freshpac-panel bg-white"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <MessageSquareText className={isCustomerPortalOrder ? "size-4 text-blue-800" : "size-4 text-freshpac-grey"} />
+                <p className="font-black text-freshpac-charcoal">Customer notes</p>
+              </div>
+              <p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-freshpac-charcoal">
+                {order.customerNotes || "No customer notes."}
+              </p>
+
+              {order.customerPoNumber ? (
+                <p className="mt-3 rounded-xl border border-blue-200 bg-white p-3 text-sm font-black text-blue-900">
+                  PO reference: {order.customerPoNumber}
+                </p>
+              ) : null}
             </div>
 
             <form action={updateOrderInternalNotes} className="rounded-2xl border border-freshpac-panel bg-white p-4">
@@ -457,6 +550,20 @@ export default async function OrderDetailPage({
             )}
           </div>
 
+          {isCustomerPortalOrder && needsSageProcessing ? (
+            <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+              <div className="flex items-center gap-2 font-black">
+                <Sparkles className="size-4" />
+                Customer portal processing checklist
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <ChecklistItem text="Print order sheet for Sage" />
+                <ChecklistItem text="Create/process in Sage" />
+                <ChecklistItem text="Mark processed here" />
+              </div>
+            </div>
+          ) : null}
+
           {order.status === "AWAITING_PAYMENT" ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               <div className="flex items-center gap-2 font-black">
@@ -513,6 +620,35 @@ function RuleCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-freshpac-panel bg-white p-3">
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-freshpac-grey">{label}</p>
       <p className="mt-1 text-sm font-bold text-freshpac-charcoal">{value}</p>
+    </div>
+  );
+}
+
+function PortalInfoBox({
+  label,
+  value,
+  tone = "normal"
+}: {
+  label: string;
+  value: string;
+  tone?: "normal" | "muted";
+}) {
+  return (
+    <div className="rounded-xl border border-blue-200 bg-white p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-blue-900">
+        {label}
+      </p>
+      <p className={`mt-1 text-sm font-black ${tone === "muted" ? "text-freshpac-grey" : "text-freshpac-charcoal"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ChecklistItem({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-blue-200 bg-white p-3 text-xs font-black text-blue-900">
+      {text}
     </div>
   );
 }
