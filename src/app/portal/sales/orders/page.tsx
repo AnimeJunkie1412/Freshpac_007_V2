@@ -7,10 +7,12 @@ import {
   FileText,
   Filter,
   ListChecks,
+  MessageSquareText,
   Plus,
   Printer,
   Search,
   ShoppingBag,
+  Sparkles,
   Truck,
   WifiOff
 } from "lucide-react";
@@ -75,6 +77,9 @@ export default async function OrdersPage({
     getOrderAttentionListFromDb(),
     getOrderStatsFromDb()
   ]);
+
+  const customerPortalOrders = orders.filter((order) => order.source === "CUSTOMER_PORTAL");
+  const customerPortalSubmittedOrders = customerPortalOrders.filter((order) => order.status === "SUBMITTED");
 
   return (
     <PortalShell
@@ -183,11 +188,29 @@ export default async function OrdersPage({
             <MiniStat label="Submitted" value={stats.submitted} tone="info" icon={<Truck className="size-4" />} />
             <MiniStat label="Pay" value={stats.awaitingPayment} tone="warning" icon={<Banknote className="size-4" />} />
             <MiniStat label="Done" value={stats.processed} tone="success" icon={<Printer className="size-4" />} />
-            <MiniStat label="Print" value={stats.needsPrint} tone="warning" icon={<Printer className="size-4" />} />
+            <MiniStat label="Portal" value={customerPortalSubmittedOrders.length} tone="info" icon={<Sparkles className="size-4" />} />
             <MiniStat label="Offline" value={stats.offlinePending} tone="danger" icon={<WifiOff className="size-4" />} />
           </CardContent>
         </Card>
       </div>
+
+      {customerPortalSubmittedOrders.length ? (
+        <Card className="portal-card-safe mb-4 border-blue-200 bg-blue-50">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div>
+              <p className="font-black text-blue-900">Customer portal orders waiting</p>
+              <p className="mt-1 text-sm font-semibold text-blue-800">
+                {customerPortalSubmittedOrders.length} customer portal order{customerPortalSubmittedOrders.length === 1 ? "" : "s"} submitted and ready for Freshpac processing.
+              </p>
+            </div>
+
+            <LinkButton href="/portal/sales/orders?source=CUSTOMER_PORTAL&status=SUBMITTED" size="sm" variant="secondary">
+              <Sparkles className="mr-2 size-4" />
+              View portal orders
+            </LinkButton>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <form method="get" action="/portal/sales/orders/print" className="grid gap-4 xl:grid-cols-[1fr_330px]">
         {q ? <input type="hidden" name="q" value={q} /> : null}
@@ -215,11 +238,18 @@ export default async function OrdersPage({
                   const reference = getOrderReference(order);
                   const encodedReference = encodeURIComponent(reference);
                   const priceVisible = order.priceVisibilityAtOrder;
+                  const isCustomerPortalOrder = order.source === "CUSTOMER_PORTAL";
+                  const hasCustomerPo = Boolean(order.customerPoNumber);
+                  const hasCustomerNotes = Boolean(order.customerNotes);
 
                   return (
                     <div
                       key={order.id}
-                      className="rounded-2xl border border-freshpac-panel bg-white p-3 shadow-sm"
+                      className={`rounded-2xl border p-3 shadow-sm ${
+                        isCustomerPortalOrder
+                          ? "border-blue-200 bg-blue-50"
+                          : "border-freshpac-panel bg-white"
+                      }`}
                     >
                       <div className="grid grid-cols-[auto_1fr] gap-3">
                         <label className="mt-1 flex size-8 items-center justify-center rounded-xl border border-freshpac-panel bg-freshpac-cream">
@@ -251,10 +281,26 @@ export default async function OrdersPage({
 
                           <div className="mt-2 flex flex-wrap gap-1">
                             <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                            {isCustomerPortalOrder ? <Badge tone="info">Customer Portal</Badge> : null}
                             {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
                             {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
                             {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
                           </div>
+
+                          {isCustomerPortalOrder && (hasCustomerPo || hasCustomerNotes) ? (
+                            <div className="mt-2 rounded-xl border border-blue-200 bg-white p-2">
+                              {hasCustomerPo ? (
+                                <p className="truncate text-[11px] font-black text-blue-900">
+                                  PO: {order.customerPoNumber}
+                                </p>
+                              ) : null}
+                              {hasCustomerNotes ? (
+                                <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold text-blue-800">
+                                  {order.customerNotes}
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
 
                           <div className="mt-2 grid grid-cols-3 gap-1.5">
                             <MobileDetail label="Date" value={formatDateTime(order.createdAt)} />
@@ -289,6 +335,7 @@ export default async function OrdersPage({
                       <CompactTh>Select</CompactTh>
                       <CompactTh>Order</CompactTh>
                       <CompactTh>Status</CompactTh>
+                      <CompactTh>Customer info</CompactTh>
                       <CompactTh>Delivery</CompactTh>
                       <CompactTh>Total</CompactTh>
                       <CompactTh>Lines</CompactTh>
@@ -301,9 +348,17 @@ export default async function OrdersPage({
                       const reference = getOrderReference(order);
                       const encodedReference = encodeURIComponent(reference);
                       const priceVisible = order.priceVisibilityAtOrder;
+                      const isCustomerPortalOrder = order.source === "CUSTOMER_PORTAL";
+                      const hasCustomerPo = Boolean(order.customerPoNumber);
+                      const hasCustomerNotes = Boolean(order.customerNotes);
 
                       return (
-                        <tr key={order.id} className="border-b border-freshpac-panel align-top hover:bg-orange-50/60">
+                        <tr
+                          key={order.id}
+                          className={`border-b border-freshpac-panel align-top hover:bg-orange-50/60 ${
+                            isCustomerPortalOrder ? "bg-blue-50/70" : ""
+                          }`}
+                        >
                           <CompactTd>
                             <label className="flex size-8 items-center justify-center rounded-xl border border-freshpac-panel bg-white">
                               <input
@@ -333,8 +388,44 @@ export default async function OrdersPage({
                             <div className="flex flex-wrap gap-1">
                               <Badge tone={getOrderStatusTone(order.status)}>{formatOrderStatus(order.status)}</Badge>
                               <Badge tone={getOrderSourceTone(order.source)}>{formatOrderSource(order.source)}</Badge>
+                              {isCustomerPortalOrder ? <Badge tone="info">Customer Portal</Badge> : null}
                               {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
                             </div>
+                          </CompactTd>
+
+                          <CompactTd>
+                            {isCustomerPortalOrder ? (
+                              <div className="min-w-44 max-w-64 rounded-xl border border-blue-200 bg-white p-2">
+                                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-blue-900">
+                                  <MessageSquareText className="size-3" />
+                                  Customer submitted
+                                </div>
+
+                                {hasCustomerPo ? (
+                                  <p className="mt-1 truncate text-[11px] font-black text-freshpac-charcoal">
+                                    PO: {order.customerPoNumber}
+                                  </p>
+                                ) : (
+                                  <p className="mt-1 text-[11px] font-semibold text-freshpac-grey">
+                                    No PO reference
+                                  </p>
+                                )}
+
+                                {hasCustomerNotes ? (
+                                  <p className="mt-1 line-clamp-2 text-[11px] font-semibold leading-4 text-freshpac-charcoal">
+                                    {order.customerNotes}
+                                  </p>
+                                ) : (
+                                  <p className="mt-1 text-[11px] font-semibold text-freshpac-grey">
+                                    No customer notes
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-freshpac-grey">
+                                Staff/internal order
+                              </span>
+                            )}
                           </CompactTd>
 
                           <CompactTd>
@@ -438,6 +529,16 @@ export default async function OrdersPage({
                 <ListChecks className="mr-2 size-4" />
                 Filtered pick list
               </LinkButton>
+
+              <LinkButton href={coffeePickListHref} variant="secondary">
+                <Coffee className="mr-2 size-4" />
+                Filtered coffee pick list
+              </LinkButton>
+
+              <LinkButton href={retailPickListHref} variant="secondary">
+                <ShoppingBag className="mr-2 size-4" />
+                Filtered retail pick list
+              </LinkButton>
             </CardContent>
           </Card>
 
@@ -456,7 +557,11 @@ export default async function OrdersPage({
                   <Link
                     key={order.id}
                     href={`/portal/sales/orders/${encodedReference}`}
-                    className="block rounded-2xl border border-freshpac-panel bg-white p-3 transition hover:border-freshpac-orange hover:bg-orange-50"
+                    className={`block rounded-2xl border p-3 transition hover:border-freshpac-orange hover:bg-orange-50 ${
+                      order.source === "CUSTOMER_PORTAL"
+                        ? "border-blue-200 bg-blue-50"
+                        : "border-freshpac-panel bg-white"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
@@ -467,11 +572,27 @@ export default async function OrdersPage({
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-1">
+                      {order.source === "CUSTOMER_PORTAL" ? <Badge tone="info">Customer Portal</Badge> : null}
                       {!order.priceVisibilityAtOrder ? <Badge tone="warning">Delivery Note Needed</Badge> : null}
                       {order.minimumOrderPassed === false ? <Badge tone="warning">Below minimum</Badge> : null}
                       {order.source === "OFFLINE_PENDING" ? <Badge tone="danger">Pending sync</Badge> : null}
                       {order.status === "AWAITING_PAYMENT" ? <Badge tone="warning">Awaiting payment</Badge> : null}
                     </div>
+
+                    {order.source === "CUSTOMER_PORTAL" && (order.customerPoNumber || order.customerNotes) ? (
+                      <div className="mt-2 rounded-xl border border-blue-200 bg-white p-2">
+                        {order.customerPoNumber ? (
+                          <p className="truncate text-[11px] font-black text-blue-900">
+                            PO: {order.customerPoNumber}
+                          </p>
+                        ) : null}
+                        {order.customerNotes ? (
+                          <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold text-blue-800">
+                            {order.customerNotes}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </Link>
                 );
               })}
