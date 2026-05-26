@@ -1,6 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ClipboardList, Coffee, FileText, Pencil, Plus, Printer, ShoppingBasket, Wrench } from "lucide-react";
+import {
+  ArrowLeft,
+  ClipboardList,
+  Coffee,
+  FileText,
+  Pencil,
+  Plus,
+  Printer,
+  ShoppingBasket,
+  UsersRound,
+  Wrench
+} from "lucide-react";
 import { addCustomerNote } from "@/app/portal/sales/customers/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { DetailField } from "@/components/sales/detail-field";
@@ -57,6 +68,7 @@ export default async function CustomerDetailPage({
   const flags = buildCustomerFlags(customer);
   const coffeeProducts = customer.productAccess.filter((access) => access.product.productType === "COFFEE");
   const retailProducts = customer.productAccess.filter((access) => access.product.productType === "RETAIL");
+  const customerLoginsHref = `/portal/sales/customers/${encodeURIComponent(customer.accountNumber)}/users`;
 
   return (
     <PortalShell
@@ -82,6 +94,10 @@ export default async function CustomerDetailPage({
             <ShoppingBasket className="mr-2 size-4" />
             Order
           </Button>
+          <LinkButton href={customerLoginsHref} variant="secondary" size="sm">
+            <UsersRound className="mr-2 size-4" />
+            Logins
+          </LinkButton>
           <Button type="button" variant="secondary" size="sm">
             <Wrench className="mr-2 size-4" />
             Job

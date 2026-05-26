@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { ArrowLeft, KeyRound, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import {
   createCustomerLogin,
   disableCustomerLogin,
-  enableCustomerLogin
+  enableCustomerLogin,
+  resetCustomerLoginPassword
 } from "@/app/portal/sales/customers/[account]/users/actions";
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,8 @@ export default async function CustomerUsersPage({
     created?: string;
     enabled?: string;
     disabled?: string;
+    reset?: string;
+    error?: string;
   };
 }) {
   const { account } = await params;
@@ -44,6 +47,7 @@ export default async function CustomerUsersPage({
   const customerHref = `/portal/sales/customers/${encodeURIComponent(customer.accountNumber)}`;
   const activeUsers = customer.users.filter((user) => user.active);
   const disabledUsers = customer.users.filter((user) => !user.active);
+  const errorMessage = getCustomerLoginErrorMessage(searchParams?.error);
 
   return (
     <PortalShell
@@ -69,7 +73,7 @@ export default async function CustomerUsersPage({
         </Link>
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[1fr_360px]">
+      <div className="grid gap-3 xl:grid-cols-[1fr_380px]">
         <Card className="portal-card-safe">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -102,66 +106,117 @@ export default async function CustomerUsersPage({
               <StatusNotice tone="warning" text="Customer login disabled successfully." />
             ) : null}
 
-            <div className="portal-scroll-panel">
-              <table className="fp-compact-table min-w-full border-collapse">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
+            {searchParams?.reset ? (
+              <StatusNotice tone="success" text="Customer password reset successfully." />
+            ) : null}
 
-                <tbody>
-                  {customer.users.map((user) => (
-                    <tr key={user.id}>
-                      <td className="font-black">{user.fullName}</td>
-                      <td>{user.email}</td>
-                      <td>
-                        <Badge tone={getCustomerUserRoleTone(user.role)}>
-                          {getCustomerUserRoleLabel(user.role)}
-                        </Badge>
-                      </td>
-                      <td>
-                        <Badge tone={user.active ? "success" : "danger"}>
-                          {user.active ? "Active" : "Disabled"}
-                        </Badge>
-                      </td>
-                      <td>{formatDate(user.createdAt)}</td>
-                      <td>
-                        {user.active ? (
-                          <form action={disableCustomerLogin}>
-                            <input type="hidden" name="accountNumber" value={customer.accountNumber} />
-                            <input type="hidden" name="customerAccountId" value={customer.id} />
-                            <input type="hidden" name="userId" value={user.id} />
-                            <Button type="submit" size="sm" variant="secondary">
-                              Disable
-                            </Button>
-                          </form>
-                        ) : (
-                          <form action={enableCustomerLogin}>
-                            <input type="hidden" name="accountNumber" value={customer.accountNumber} />
-                            <input type="hidden" name="customerAccountId" value={customer.id} />
-                            <input type="hidden" name="userId" value={user.id} />
-                            <Button type="submit" size="sm">
-                              Enable
-                            </Button>
-                          </form>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {errorMessage ? (
+              <StatusNotice tone="danger" text={errorMessage} />
+            ) : null}
+
+            <div className="grid gap-3 md:hidden">
+              {customer.users.map((user) => (
+                <CustomerUserCard
+                  key={user.id}
+                  user={user}
+                  customerAccountId={customer.id}
+                  accountNumber={customer.accountNumber}
+                />
+              ))}
 
               {!customer.users.length ? (
-                <div className="p-6 text-sm text-freshpac-grey">
+                <div className="rounded-xl border border-freshpac-panel bg-white p-4 text-sm text-freshpac-grey">
                   No customer logins have been created for this account yet.
                 </div>
               ) : null}
+            </div>
+
+            <div className="hidden md:block">
+              <div className="portal-scroll-panel">
+                <table className="fp-compact-table min-w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                      <th>Enable</th>
+                      <th>Reset password</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {customer.users.map((user) => (
+                      <tr key={user.id}>
+                        <td className="font-black">{user.fullName}</td>
+                        <td>{user.email}</td>
+                        <td>
+                          <Badge tone={getCustomerUserRoleTone(user.role)}>
+                            {getCustomerUserRoleLabel(user.role)}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Badge tone={user.active ? "success" : "danger"}>
+                            {user.active ? "Active" : "Disabled"}
+                          </Badge>
+                        </td>
+                        <td>{formatDate(user.createdAt)}</td>
+                        <td>
+                          {user.active ? (
+                            <form action={disableCustomerLogin}>
+                              <input type="hidden" name="accountNumber" value={customer.accountNumber} />
+                              <input type="hidden" name="customerAccountId" value={customer.id} />
+                              <input type="hidden" name="userId" value={user.id} />
+                              <Button type="submit" size="sm" variant="secondary">
+                                Disable
+                              </Button>
+                            </form>
+                          ) : (
+                            <form action={enableCustomerLogin}>
+                              <input type="hidden" name="accountNumber" value={customer.accountNumber} />
+                              <input type="hidden" name="customerAccountId" value={customer.id} />
+                              <input type="hidden" name="userId" value={user.id} />
+                              <Button type="submit" size="sm">
+                                Enable
+                              </Button>
+                            </form>
+                          )}
+                        </td>
+                        <td>
+                          {user.authUserId ? (
+                            <form action={resetCustomerLoginPassword} className="flex min-w-[210px] items-center gap-2">
+                              <input type="hidden" name="accountNumber" value={customer.accountNumber} />
+                              <input type="hidden" name="customerAccountId" value={customer.id} />
+                              <input type="hidden" name="userId" value={user.id} />
+                              <input type="hidden" name="authUserId" value={user.authUserId} />
+                              <Input
+                                name="password"
+                                type="password"
+                                required
+                                minLength={8}
+                                placeholder="New password"
+                                className="h-8 min-w-0 text-xs"
+                              />
+                              <Button type="submit" size="sm" variant="secondary">
+                                Reset
+                              </Button>
+                            </form>
+                          ) : (
+                            <Badge tone="warning">No auth link</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {!customer.users.length ? (
+                  <div className="p-6 text-sm text-freshpac-grey">
+                    No customer logins have been created for this account yet.
+                  </div>
+                ) : null}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -203,6 +258,7 @@ export default async function CustomerUsersPage({
                   name="password"
                   type="password"
                   placeholder="Minimum 8 characters"
+                  minLength={8}
                 />
 
                 <label className="block">
@@ -232,7 +288,7 @@ export default async function CustomerUsersPage({
                 </label>
 
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">
-                  Parent users should normally be for the main account holder. Child users are best for branch/site-level access.
+                  Passwords must be at least 8 characters. Parent users should normally be for the main account holder. Child users are best for branch/site-level access.
                 </div>
 
                 <Button type="submit">
@@ -272,16 +328,107 @@ export default async function CustomerUsersPage({
   );
 }
 
+function CustomerUserCard({
+  user,
+  customerAccountId,
+  accountNumber
+}: {
+  user: {
+    id: string;
+    authUserId: string | null;
+    fullName: string;
+    email: string;
+    role: string;
+    active: boolean;
+    createdAt: Date;
+  };
+  customerAccountId: string;
+  accountNumber: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-freshpac-panel bg-white p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-black text-freshpac-charcoal">{user.fullName}</p>
+          <p className="truncate text-xs font-semibold text-freshpac-grey">{user.email}</p>
+        </div>
+
+        <Badge tone={user.active ? "success" : "danger"}>
+          {user.active ? "Active" : "Disabled"}
+        </Badge>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <Badge tone={getCustomerUserRoleTone(user.role)}>
+          {getCustomerUserRoleLabel(user.role)}
+        </Badge>
+        <Badge>{formatDate(user.createdAt)}</Badge>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {user.active ? (
+          <form action={disableCustomerLogin}>
+            <input type="hidden" name="accountNumber" value={accountNumber} />
+            <input type="hidden" name="customerAccountId" value={customerAccountId} />
+            <input type="hidden" name="userId" value={user.id} />
+            <Button type="submit" size="sm" variant="secondary" className="w-full">
+              Disable login
+            </Button>
+          </form>
+        ) : (
+          <form action={enableCustomerLogin}>
+            <input type="hidden" name="accountNumber" value={accountNumber} />
+            <input type="hidden" name="customerAccountId" value={customerAccountId} />
+            <input type="hidden" name="userId" value={user.id} />
+            <Button type="submit" size="sm" className="w-full">
+              Enable login
+            </Button>
+          </form>
+        )}
+
+        {user.authUserId ? (
+          <form action={resetCustomerLoginPassword} className="grid grid-cols-[1fr_auto] gap-2">
+            <input type="hidden" name="accountNumber" value={accountNumber} />
+            <input type="hidden" name="customerAccountId" value={customerAccountId} />
+            <input type="hidden" name="userId" value={user.id} />
+            <input type="hidden" name="authUserId" value={user.authUserId} />
+            <label className="relative block min-w-0">
+              <KeyRound className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-freshpac-grey" />
+              <Input
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                placeholder="New password"
+                className="h-8 pl-7 text-xs"
+              />
+            </label>
+            <Button type="submit" size="sm" variant="secondary">
+              Reset
+            </Button>
+          </form>
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs font-bold text-amber-900">
+            This profile has no Supabase auth link, so the password cannot be reset here.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FormField({
   label,
   name,
   placeholder,
-  type = "text"
+  type = "text",
+  minLength
 }: {
   label: string;
   name: string;
   placeholder: string;
   type?: string;
+  minLength?: number;
 }) {
   return (
     <label className="block">
@@ -293,6 +440,7 @@ function FormField({
         name={name}
         type={type}
         placeholder={placeholder}
+        minLength={minLength}
         required
       />
     </label>
@@ -304,18 +452,48 @@ function StatusNotice({
   tone
 }: {
   text: string;
-  tone: "success" | "warning";
+  tone: "success" | "warning" | "danger";
 }) {
   const className =
     tone === "success"
       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-      : "border-amber-200 bg-amber-50 text-amber-900";
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-red-200 bg-red-50 text-red-800";
 
   return (
     <div className={`mb-3 rounded-2xl border p-3 text-sm font-bold ${className}`}>
       {text}
     </div>
   );
+}
+
+function getCustomerLoginErrorMessage(error?: string) {
+  if (error === "password") {
+    return "Password must be at least 8 characters.";
+  }
+
+  if (error === "exists") {
+    return "A user profile already exists for that email address.";
+  }
+
+  if (error === "auth") {
+    return "Supabase could not create that login. Check the email and password, then try again.";
+  }
+
+  if (error === "customer") {
+    return "Customer account could not be verified. Go back to the customer account and try again.";
+  }
+
+  if (error === "user") {
+    return "That login could not be verified against this customer account.";
+  }
+
+  if (error === "reset") {
+    return "Supabase could not reset that password. Try again or check the Supabase user record.";
+  }
+
+  return null;
 }
 
 function formatDate(date: Date) {

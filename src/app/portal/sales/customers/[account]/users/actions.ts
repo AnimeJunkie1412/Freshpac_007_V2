@@ -21,19 +21,19 @@ export async function createCustomerLogin(formData: FormData) {
   const active = String(formData.get("active") || "") === "on";
 
   if (password.length < 8) {
-    throw new Error("Password must be at least 8 characters.");
+    redirectToCustomerUsers(accountNumber, "password");
   }
 
   const customer = await getCustomerWithUsersFromDb(accountNumber);
 
   if (!customer || customer.id !== customerAccountId) {
-    throw new Error("Customer account was not found.");
+    redirectToCustomerUsers(accountNumber, "customer");
   }
 
   const existingProfile = await getExistingCustomerUserProfileByEmail(email);
 
   if (existingProfile) {
-    throw new Error("A user profile already exists for this email.");
+    redirectToCustomerUsers(accountNumber, "exists");
   }
 
   const supabase = getSupabaseAdminClient();
@@ -51,7 +51,7 @@ export async function createCustomerLogin(formData: FormData) {
   });
 
   if (createdAuthUser.error || !createdAuthUser.data.user) {
-    throw new Error(createdAuthUser.error?.message || "Supabase could not create this customer login.");
+    redirectToCustomerUsers(accountNumber, "auth");
   }
 
   const authUserId = createdAuthUser.data.user.id;
@@ -72,6 +72,45 @@ export async function createCustomerLogin(formData: FormData) {
 
   revalidateCustomerUserPaths(accountNumber);
   redirect(`/portal/sales/customers/${encodeURIComponent(accountNumber)}/users?created=1`);
+}
+
+export async function resetCustomerLoginPassword(formData: FormData) {
+  const accountNumber = readRequiredFormValue(formData, "accountNumber");
+  const customerAccountId = readRequiredFormValue(formData, "customerAccountId");
+  const userId = readRequiredFormValue(formData, "userId");
+  const authUserId = readRequiredFormValue(formData, "authUserId");
+  const password = readRequiredFormValue(formData, "password");
+
+  if (password.length < 8) {
+    redirectToCustomerUsers(accountNumber, "password");
+  }
+
+  const customer = await getCustomerWithUsersFromDb(accountNumber);
+
+  if (!customer || customer.id !== customerAccountId) {
+    redirectToCustomerUsers(accountNumber, "customer");
+  }
+
+  const userBelongsToCustomer = customer.users.some((user) => {
+    return user.id === userId && user.authUserId === authUserId;
+  });
+
+  if (!userBelongsToCustomer) {
+    redirectToCustomerUsers(accountNumber, "user");
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  const updatedUser = await supabase.auth.admin.updateUserById(authUserId, {
+    password
+  });
+
+  if (updatedUser.error) {
+    redirectToCustomerUsers(accountNumber, "reset");
+  }
+
+  revalidateCustomerUserPaths(accountNumber);
+  redirect(`/portal/sales/customers/${encodeURIComponent(accountNumber)}/users?reset=1`);
 }
 
 export async function disableCustomerLogin(formData: FormData) {
@@ -110,6 +149,10 @@ function revalidateCustomerUserPaths(accountNumber: string) {
   revalidatePath("/portal/sales/customers");
   revalidatePath(`/portal/sales/customers/${encodeURIComponent(accountNumber)}`);
   revalidatePath(`/portal/sales/customers/${encodeURIComponent(accountNumber)}/users`);
+}
+
+function redirectToCustomerUsers(accountNumber: string, error: string): never {
+  redirect(`/portal/sales/customers/${encodeURIComponent(accountNumber)}/users?error=${encodeURIComponent(error)}`);
 }
 
 function readRequiredFormValue(formData: FormData, key: string) {
